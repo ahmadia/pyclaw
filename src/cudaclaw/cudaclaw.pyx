@@ -42,7 +42,7 @@ def check_err(err):
     else:
         caller = sys._getframe(1).f_code.co_name
         raise Exception(
-            "Error code %d returned from %s" % err, caller)
+            "Error code %d returned from %s" % (err, caller))
 
 class CUDAState(clawpack.pyclaw.State):
     r"""  See the corresponding PyClaw State documentation."""
