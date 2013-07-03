@@ -53,7 +53,7 @@ GENCODE_SM30    := -gencode arch=compute_30,code=sm_30 -gencode arch=compute_35,
 GENCODE_FLAGS   := $(GENCODE_SM10) $(GENCODE_SM20) $(GENCODE_SM30)
 
 # OS-specific build flags
-ifneq ($(DARWIN),) 
+ifneq ($(DARWIN),)
       LDFLAGS   := -Xlinker -rpath $(CUDA_LIB_PATH) -L$(CUDA_LIB_PATH) -lcudart -framework GLUT -framework OpenGL -framework Cocoa -L/usr/local/Cellar/glew/1.9.0/lib -lGLEW
       CCFLAGS   := -arch $(OS_ARCH) -Wfatal-errors -framework GLUT -framework OpenGL -framework Cocoa
 else
@@ -97,12 +97,12 @@ build: cudaclaw
 %.o: %.cpp
 	$(GCC) $(CCFLAGS) $(EXTRA_CCFLAGS) $(INCLUDES) -o $@ -c $<
 
-cudaclaw_glut: Riemann_Flux.o glInfo.o probleml_setup.o Timer.o boundary_conditions.o cudaCLAW_main.o Visualizer2D.o
+cudaclaw_glut: glInfo.o problem_setup.o Timer.o cudaCLAW_main.o
 	$(GCC) $(CCFLAGS) -o $@ $+ $(LDFLAGS) $(EXTRA_LDFLAGS)
 	mkdir -p ./bin/$(OSLOWER)/$(TARGET)
 	cp $@ ./bin/$(OSLOWER)/$(TARGET)
 
-cudaclaw: Riemann_Flux.o probleml_setup.o boundary_conditions.o CUDACLAW_main_noVis.o 
+cudaclaw: problem_setup.o CUDACLAW_main_noVis.o
 	$(GCC) $(CCFLAGS) -o $@ $+ $(LDFLAGS) $(EXTRA_LDFLAGS)
 	mkdir -p ./bin/$(OSLOWER)/$(TARGET)
 	cp $@ ./bin/$(OSLOWER)/$(TARGET)
