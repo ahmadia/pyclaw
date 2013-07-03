@@ -3,8 +3,6 @@
 
 #include <string>
 
-typedef float real;
-
 struct pdeParam
 {
     int cellsX;			// number of cells on the horizontal, including ghost cells (unpadded)
