@@ -3,6 +3,8 @@
 
 #include <string>
 
+typedef double real;
+
 struct pdeParam
 {
     int cellsX;			// number of cells on the horizontal, including ghost cells (unpadded)
@@ -219,7 +221,7 @@ pdeParam(int cellsX, int cellsY, int ghostCells, int numStates, int numWaves, in
 
 	    int size = cellsX*cellsY;
 
-	    float* chunk = (float*)malloc(cellsY*sizeof(float));
+	    real* chunk = (real*)malloc(cellsY*sizeof(real));
 
 	    FILE* pdeData;
 	    char filename[256];
@@ -233,7 +235,7 @@ pdeParam(int cellsX, int cellsY, int ghostCells, int numStates, int numWaves, in
 	    {
 		for (int row = 0; row < cellsX; row++)
 		{
-		    memcpy(chunk, &cpu_q[state*size + row*cellsY], cellsY*sizeof(float));
+		    memcpy(chunk, &cpu_q[state*size + row*cellsY], cellsY*sizeof(real));
 		    for(int col = 0; col < cellsY; col++)
 		    {
 			fprintf(pdeData, "%f ", chunk[col]);
