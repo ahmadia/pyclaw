@@ -36,13 +36,18 @@ import numpy as np
 cimport numpy as np
 
 def check_err(err):
+    r"""Convert C integer error codes to Python exceptions
 
+    @param err: C integer error code
+    @return: None if error is 0/False
+    @raise: Exception if err is True
+    """
     if (not err):
         return
     else:
         caller = sys._getframe(1).f_code.co_name
         raise Exception(
-            "Error code %d returned from %s" % err, caller)
+            'Error code %d returned from %s' % (err, caller))
 
 class CUDAState(clawpack.pyclaw.State):
     r"""  See the corresponding PyClaw State documentation."""
@@ -64,6 +69,8 @@ class CUDAState(clawpack.pyclaw.State):
         (fastest-moving index first)
         CUDAClaw order: (x, y, e)
         PyClaw   order: (e, x, y)
+        @param num_ghost:
+        @param qbc:
         """
 
         cdef int meqn, mx, my
