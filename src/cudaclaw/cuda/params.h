@@ -216,8 +216,6 @@ pdeParam(int cellsX, int cellsY, int ghostCells, int numStates, int numWaves, in
 	    cudaError_t cpy_err2 = cudaMemcpy(cpu_coefficients, coefficients, cells*numCoeff*sizeof(real), cudaMemcpyDeviceToHost);
 
 	    // copy data from CPU to disk
-	    real xRange = endX-startX;
-	    real yRange = endY-startY;
 
 	    int size = cellsX*cellsY;
 
