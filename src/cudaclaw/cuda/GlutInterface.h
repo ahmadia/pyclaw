@@ -11,12 +11,20 @@ struct GlutInterface
 
 	static void InitGlut(int &argc, char** argv, int window_width, int window_height, int dispResX, int dispResY);
 
+	~GlutInterface();
+
 	// static functions to be used as callback functions
 	static void RESHAPE(int w, int h);
 	static void RENDER();
 	static void KEYPRESS(unsigned char key, int x, int y);
 	static void MOUSECLICK(int button, int state, int x, int y);
 };
+
+template<class Vis>
+GlutInterface<Vis>::~GlutInterface()
+{
+	delete visualizer;
+}
 
 template<class Vis>
 inline void GlutInterface<Vis>::RESHAPE(int w, int h)

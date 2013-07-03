@@ -6,116 +6,101 @@
 // The Waves and Wave Speeds lie in the shared memory.
 // The concern at this stage is not coalescing and alignment (not as it would be in global)
 // but bank conflicts, different schemes are likely to yield different performances
-// Note however that the Riemann solver depends on the distribution of this data,
-// and assumes to have wave1[state1, state2, state3] wave2[state1, state2, state3]
-// If this is to remain we must keep the fastest changing components and fiddle
-// only with the slower changing ones.
-// So, in the case of the waves, the wave number and states must remain as they are,
-// and in the case of the wave speeds the wave number must remain.
-// Alternatively we must provide a function to the user to set his/her own waves
-// such that it would be compatible to the way the framework lays down the memory.
+// Note however that the Riemann solver depends on the function below as they call them 
+// with their proper arguments to access the correct location for the speeds and waves.
+// The accessor method take all dimension information and use all but one. This is done
+// to make code changes easy when a different accessing scheme is to be used.
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////      Waves    //////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-inline __device__ int getIndex_sharedWaves(int row, int col, int waveNum, int state, int numStates, int numWaves, int blockWidth)
+inline __device__ int general_indexing(int a, int sizeA, int b, int sizeB, int c, int sizeC, int d, int sizeD)
 {
-	return (row*numStates*numWaves*blockWidth + col*numStates*numWaves + waveNum*numStates + state);
+	return (a*sizeB*sizeC*sizeD + b*sizeC*sizeD + c*sizeD + d);
 }
-inline __device__ real &getSharedWave(real* sharedWaves, int row, int col, int waveNum, int state, int numStates, int numWaves, int blockWidth)
+inline __device__ int getIndex_SharedWave(int row, int col, int wave, int state, int numWaves, int numStates, int blockHeight, int blockWidth)
 {
-	return sharedWaves[getIndex_sharedWaves(row, col, waveNum, state, numStates, numWaves, blockWidth)];
-}
-inline __device__ void setSharedWave(real* sharedWaves, int row, int col, int waveNum, int state, int numStates, int numWaves, int blockWidth, real newVal)
-{
-	sharedWaves[getIndex_sharedWaves(row, col, waveNum, state, numStates, numWaves, blockWidth)] = newVal;
-}
+	//return ( general_indexing(row, blockHeight, col, blockWidth, wave, numWaves, state, numStates) ); // 2.55, 22r 23r
+	//return ( general_indexing(row, blockHeight, col, blockWidth, state, numStates, wave, numWaves) ); // 2.55, 22r 23r
+	//return ( general_indexing(row, blockHeight, state, numStates, col, blockWidth, wave, numWaves) ); // 2.67
+	//return ( general_indexing(row, blockHeight, state, numStates, wave, numWaves, col, blockWidth) ); // 2.88
+	//return ( general_indexing(row, blockHeight, wave, numWaves, col, blockWidth, state, numStates) ); // 2.67
+	return ( general_indexing(row, blockHeight, wave, numWaves, state, numStates, col, blockWidth) ); // 2.88, 24r 26r <------- this vs
+	//return ( (((row*numWaves) + wave)*numStates + state)*blockWidth + col);
+	//return ( row*blockWidth*numWaves*numStates + col*numWaves*numStates + wave*numStates + state);	//					<------- this
+	//
+	//return ( general_indexing(col, blockWidth, row, blockHeight, wave, numWaves, state, numStates) );
+	//return ( general_indexing(col, blockWidth, row, blockHeight, state, numStates, wave, numWaves) );
+	//return ( general_indexing(col, blockWidth, wave, numWaves, row, blockHeight, state, numStates) );
+	//return ( general_indexing(col, blockWidth, wave, numWaves, state, numStates, row, blockHeight) );
+	//return ( general_indexing(col, blockWidth, state, numStates, wave, numWaves, row, blockHeight) );
+	//return ( general_indexing(col, blockWidth, state, numStates, row, blockHeight, wave, numWaves) );
+	//
+	//return ( general_indexing(wave, numWaves, row, blockHeight, col, blockWidth, state, numStates) );
+	//return ( general_indexing(wave, numWaves, row, blockHeight, state, numStates, col, blockWidth) );
+	//return ( general_indexing(wave, numWaves, col, blockWidth, row, blockHeight, state, numStates) );
+	//return ( general_indexing(wave, numWaves, col, blockWidth, state, numStates, row, blockHeight) );
+	//return ( general_indexing(wave, numWaves, state, numStates, col, blockWidth, row, blockHeight) );
+	//return ( general_indexing(wave, numWaves, state, numStates, row, blockHeight, col, blockWidth) );
 
-
-inline __device__ int getIndex_sharedWaves_flat1(int row, int col, int waveNum, int state, int numStates, int blockSize, int blockWidth)// state 1 of waves1, state 2 of waves1, state 3 of waves1, state 1 of waves2, ...
-{
-	return (waveNum*blockSize*numStates + state*blockSize + row*blockWidth + col);
+	//return ( general_indexing(state, numStates, col, blockWidth, row, blockHeight, wave, numWaves) );	// generally bad
+	//return ( general_indexing(state, numStates, col, blockWidth, wave, numWaves, row, blockHeight) );
+	//return ( general_indexing(state, numStates, row, blockHeight, col, blockWidth, wave, numWaves) );
+	//return ( general_indexing(state, numStates, row, blockHeight, wave, numWaves, col, blockWidth) );
+	//return ( general_indexing(state, numStates, wave, numWaves, row, blockHeight, col, blockWidth) );
+	//return ( general_indexing(state, numStates, wave, numWaves, col, blockWidth, row, blockHeight) );
 }
-inline __device__ real &getSharedWave_flat1(real* sharedWaves, int row, int col, int waveNum, int state, int numStates, int blockSize, int blockWidth)
+inline __device__ real &getSharedWave(real* sharedData, int row, int col, int wave, int state, int numWaves, int numStates, int blockHeight, int blockWidth)
 {
-	return sharedWaves[getIndex_sharedWaves_flat1(row, col, waveNum, state, numStates, blockSize, blockWidth)];
+	return sharedData[getIndex_SharedWave(row, col, wave, state, numWaves, numStates, blockHeight, blockWidth)];
 }
-inline __device__ void setSharedWave_flat1(real* sharedWaves, int row, int col, int waveNum, int state, int numStates, int blockSize, int blockWidth, real newVal)
+inline __device__ void setSharedWave(real* sharedData, int row, int col, int wave, int state, int numWaves, int numStates, int blockHeight, int blockWidth, real newVal)
 {
-	sharedWaves[getIndex_sharedWaves_flat1(row, col, waveNum, state, numStates, blockSize, blockWidth)] = newVal;
-}
-
-
-inline __device__ int getIndex_sharedWaves_flat2(int row, int col, int waveNum, int state, int numWaves, int blockSize, int blockWidth)// state 1 of waves1, state 1 of waves2, state 1 of waves3, state 2 of waves1, ...
-{
-	return (state*blockSize*numWaves + waveNum*blockSize + row*blockWidth + col);
-}
-inline __device__ real &getSharedWave_flat2(real* sharedWaves, int row, int col, int waveNum, int state, int numWaves, int blockSize, int blockWidth)
-{
-	return sharedWaves[getIndex_sharedWaves_flat2(row, col, waveNum, state, numWaves, blockSize, blockWidth)];
-}
-inline __device__ void setSharedWave_flat2(real* sharedWaves, int row, int col, int waveNum, int state, int numWaves, int blockSize, int blockWidth, real newVal)
-{
-	sharedWaves[getIndex_sharedWaves_flat2(row, col, waveNum, state, numWaves, blockSize, blockWidth)] = newVal;
+	sharedData[getIndex_SharedWave(row, col, wave, state, numWaves, numStates, blockHeight, blockWidth)] = newVal;
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////  Wave Speeds  //////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-inline __device__ int getIndex_waveSpeed(int row, int col, int waveNum, int numWaves, int blockWidth)
+inline __device__ int getIndex_SharedSpeed(int row, int col, int wave, int numWaves, int blockHeight, int blockWidth)
 {
-	return (row*numWaves*blockWidth + col*numWaves + waveNum);
+	return (row*numWaves*blockWidth + wave*blockWidth + col);		// seems like the best
+	//return ( row*blockWidth*numWaves + col*numWaves + wave);
+	//return (col*numWaves*blockHeight + wave*blockHeight + row);
+	//return (col*blockHeight*numWaves + row*numWaves + wave);
+	//return (wave*blockHeight*blockWidth + row*blockWidth + col);
+	//return (wave*blockWidth*blockHeight + col*blockHeight + row);
 }
-inline __device__ real &getWaveSpeed(real* waveSpeeds, int row, int col, int waveNum, int numWaves, int blockWidth)
+inline __device__ real &getSharedSpeed(real* sharedData, int row, int col, int wave, int numWaves, int blockHeight, int blockWidth)
 {
-	return waveSpeeds[getIndex_waveSpeed(row, col, waveNum, numWaves, blockWidth)];
+	return sharedData[getIndex_SharedSpeed(row, col, wave, numWaves, blockHeight, blockWidth)];
 }
-inline __device__ void setWaveSpeed(real* waveSpeeds, int row, int col, int waveNum, int numWaves, int blockWidth, real newSpeed)
+inline __device__ void setSharedSpeed(real* sharedData, int row, int col, int wave, int numWaves, int blockHeight, int blockWidth, real newVal)
 {
-	waveSpeeds[getIndex_waveSpeed(row, col, waveNum, numWaves, blockWidth)] = newSpeed;
+	sharedData[getIndex_SharedSpeed(row, col, wave, numWaves, blockHeight, blockWidth)] = newVal;
 }
 
-inline __device__ int getIndex_waveSpeed_flat(int row, int col, int waveNum, int blockSize, int blockWidth)
-{
-	return (waveNum*blockSize + row*blockWidth + col);
-}
-inline __device__ real &getWaveSpeed_flat(real* waveSpeeds, int row, int col, int waveNum, int blockSize, int blockWidth)
-{
-	return waveSpeeds[getIndex_waveSpeed_flat(row, col, waveNum, blockSize, blockWidth)];
-}
-inline __device__ void setWaveSpeed_flat(real* waveSpeeds, int row, int col, int waveNum, int blockSize, int blockWidth, real newSpeed)
-{
-	waveSpeeds[getIndex_waveSpeed_flat(row, col, waveNum, blockSize, blockWidth)] = newSpeed;
-}
 
 // As a general rule a Riemann solver must have the following arguments:
 // Input:
 // - 2 cells, one left one right (equivalently up and down)
 // - 2 sets of coefficients one for the left cell the other for the right
-// - the number of states (however the user writing the solver would know about this, as well as the number of coefficients)
+// - The position (row, column) of the interface
+// - The number of states
+// - The number of waves
 // Output:
-// - a location for storing the set of waves
+// - a location for storing the set of waves, base address 
 // - a location for storing the set of wave speeds
 //
-// The input will come from the global and output will be to shared memory.
-//
-// A slightly independent note: The Riemann solver's pointer inputs will be take as contiguous arrays.
-// That is, eveything to be passed to the solver must first be put in an array format, regardless of
-// the global memory distribution. For example, if the global memory distribution is per cell, then
-// a pointer to the cell can be used, otherwise, if the memory distribution is per state, as is the
-// situation at the moment, we must gather the cell data into an array and pass a pointer to this new
-// array as argument.
-// The shared memory objects, like the waves and their speeds, are also thought of as arrays in shared.
-// Changing this is not advisable, as the current setting works quite well with no bank conflicts (for
-// acoustics at least). In case a change must be done, as function must be provided to the user to have
-// correct read and write access to the waves, to be compatible with the frameworks view of these objects
-// in shared.
+// The input will come from the registers (read from global into registers)
+// and output will be to shared memory.
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////   Riemann Solvers   ////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 struct acoustics_horizontal
 {
-	__device__ void operator() (real* q_left, real* q_right, int numStates, real* u_left, real* u_right,	// input
-								real* wave, real* waveSpeeds)												// output
+	__device__ void operator() (real* q_left, real* q_right, real* u_left, real* u_right,			// input
+								int row, int col, int numStates, int numWaves,
+								real* wave, real* waveSpeeds)										// output
 	{
 		real rho_l = u_left[0];
 		real bulk_l = u_left[1];
@@ -128,26 +113,27 @@ struct acoustics_horizontal
 
 		real c_r = sqrt(bulk_r/rho_r);
 		real z_r = c_r*rho_r;
-
-		waveSpeeds[0] = -c_l;
-		waveSpeeds[1] = c_r;
+		
+		setSharedSpeed(waveSpeeds, row, col, 0, numWaves, blockDim.y, blockDim.x, -c_l);
+		setSharedSpeed(waveSpeeds, row, col, 1, numWaves, blockDim.y, blockDim.x,  c_l);
 
 		real alpha1 = ( q_left[0] - q_right[0] + z_r*(q_right[1] - q_left[1])) / (z_l+z_r);	// ( -(pr-pl) + zr(vr-vl) )/ (zl+zr)
 		real alpha2 = ( q_right[0] - q_left[0] + z_l*(q_right[1] - q_left[1])) / (z_l+z_r);	// (  (pr-pl) + zl(vr-vl) )/ (zl+zr)
-
-		wave[0 + 0*numStates] = -alpha1*z_l;
-		wave[1 + 0*numStates] = alpha1;
-		wave[2 + 0*numStates] = 0.0f;
-
-		wave[0 + 1*numStates] = alpha2*z_r;
-		wave[1 + 1*numStates] = alpha2;
-		wave[2 + 1*numStates] = 0.0f;
+		
+		setSharedWave(wave, row, col, 0, 0, numWaves, numStates, blockDim.y, blockDim.x, -alpha1*z_l);
+		setSharedWave(wave, row, col, 0, 1, numWaves, numStates, blockDim.y, blockDim.x, alpha1);
+		setSharedWave(wave, row, col, 0, 2, numWaves, numStates, blockDim.y, blockDim.x, 0.0f);
+		
+		setSharedWave(wave, row, col, 1, 0, numWaves, numStates, blockDim.y, blockDim.x, alpha2*z_r);
+		setSharedWave(wave, row, col, 1, 1, numWaves, numStates, blockDim.y, blockDim.x, alpha2);
+		setSharedWave(wave, row, col, 1, 2, numWaves, numStates, blockDim.y, blockDim.x, 0.0f);
 	}
 };
 struct acoustics_vertical
 {
-	__device__ void operator() (real* q_left, real* q_right, int numStates, real* u_left, real* u_right,	// input
-								real* wave, real* waveSpeeds)												// output
+	__device__ void operator() (real* q_left, real* q_right, real* u_left, real* u_right,			// input
+								int row, int col, int numStates, int numWaves,
+								real* wave, real* waveSpeeds)										// output
 	{
 		real rho_l = u_left[0];
 		real bulk_l = u_left[1];
@@ -160,30 +146,30 @@ struct acoustics_vertical
 
 		real c_r = sqrt(bulk_r/rho_r);
 		real z_r = c_r*rho_r;
-
-		waveSpeeds[0] = -c_l;
-		waveSpeeds[1] = c_r;
-
+		
+		setSharedSpeed(waveSpeeds, row, col, 0, numWaves, blockDim.y, blockDim.x, -c_l);
+		setSharedSpeed(waveSpeeds, row, col, 1, numWaves, blockDim.y, blockDim.x,  c_l);
+		
 		real alpha1 = ( q_left[0] - q_right[0] + z_r*(q_right[2] - q_left[2])) / (z_l+z_r);	// ( -(pr-pl) + zr(vr-vl) )/ (zl+zr)
 		real alpha2 = ( q_right[0] - q_left[0] + z_l*(q_right[2] - q_left[2])) / (z_l+z_r);	// (  (pr-pl) + zl(vr-vl) )/ (zl+zr)
-
-		wave[0 + 0*numStates] = -alpha1*z_l;
-		wave[1 + 0*numStates] = 0.0f;
-		wave[2 + 0*numStates] = alpha1;
-
-		wave[0 + 1*numStates] = alpha2*z_r;
-		wave[1 + 1*numStates] = 0.0f;
-		wave[2 + 1*numStates] = alpha2;
+		
+		setSharedWave(wave, row, col, 0, 0, numWaves, numStates, blockDim.y, blockDim.x, -alpha1*z_l);
+		setSharedWave(wave, row, col, 0, 1, numWaves, numStates, blockDim.y, blockDim.x, 0.0f);
+		setSharedWave(wave, row, col, 0, 2, numWaves, numStates, blockDim.y, blockDim.x, alpha1);
+		
+		setSharedWave(wave, row, col, 1, 0, numWaves, numStates, blockDim.y, blockDim.x, alpha2*z_r);
+		setSharedWave(wave, row, col, 1, 1, numWaves, numStates, blockDim.y, blockDim.x, 0.0f);
+		setSharedWave(wave, row, col, 1, 2, numWaves, numStates, blockDim.y, blockDim.x, alpha2);
 	}
 };
-
 struct shallow_water_horizontal
 {
-	__device__ void operator() (real* q_left, real* q_right, int numStates, real* u_left, real* u_right,	// input
-								real* wave, real* waveSpeeds)												// output
+	__device__ void operator() (real* q_left, real* q_right, real* u_left, real* u_right,			// input
+								int row, int col, int numStates, int numWaves,
+								real* wave, real* waveSpeeds)										// output
 	{
 		// try rearanging, or using ul and ur, vl and vr variables instead of dividing every time!
-		real g = 9.8;
+		real g = 9.8f;
 
 		real h_left   = q_left[0];
 		real hu_left  = q_left[1];
@@ -208,35 +194,35 @@ struct shallow_water_horizontal
 
 		real c_hat = sqrt(g*h_bar);
 		
-		waveSpeeds[0] = u_hat - c_hat;
-		waveSpeeds[1] = u_hat;
-		waveSpeeds[2] = u_hat + c_hat;
-
+		setSharedSpeed(waveSpeeds, row, col, 0, numWaves, blockDim.y, blockDim.x, u_hat - c_hat);
+		setSharedSpeed(waveSpeeds, row, col, 1, numWaves, blockDim.y, blockDim.x, u_hat);
+		setSharedSpeed(waveSpeeds, row, col, 2, numWaves, blockDim.y, blockDim.x, u_hat + c_hat);
+		
 		real alpha1 = 0.5f*((u_hat + c_hat)*(h_right - h_left) - (hu_right - hu_left))/c_hat;
 		real alpha2 = (hv_right-hv_left)-v_hat*(h_right - h_left);
 		real alpha3 = 0.5f*((c_hat - u_hat)*(h_right - h_left) + (hu_right - hu_left))/c_hat;
 
-
-		wave[0 + 0*numStates] = alpha1;
-		wave[1 + 0*numStates] = alpha1*(u_hat - c_hat);
-		wave[2 + 0*numStates] = alpha1*v_hat;
-
-		wave[0 + 1*numStates] = 0.0f;
-		wave[1 + 1*numStates] = 0.0f;
-		wave[2 + 1*numStates] = alpha2;
-
-		wave[0 + 2*numStates] = alpha3;
-		wave[1 + 2*numStates] = alpha3*(u_hat + c_hat);
-		wave[2 + 2*numStates] = alpha3*v_hat;
+		setSharedWave(wave, row, col, 0, 0, numWaves, numStates, blockDim.y, blockDim.x, alpha1);
+		setSharedWave(wave, row, col, 0, 1, numWaves, numStates, blockDim.y, blockDim.x, alpha1*(u_hat - c_hat));
+		setSharedWave(wave, row, col, 0, 2, numWaves, numStates, blockDim.y, blockDim.x, alpha1*v_hat);
+		
+		setSharedWave(wave, row, col, 1, 0, numWaves, numStates, blockDim.y, blockDim.x, 0.0f);
+		setSharedWave(wave, row, col, 1, 1, numWaves, numStates, blockDim.y, blockDim.x, 0.0f);
+		setSharedWave(wave, row, col, 1, 2, numWaves, numStates, blockDim.y, blockDim.x, alpha2);
+		
+		setSharedWave(wave, row, col, 2, 0, numWaves, numStates, blockDim.y, blockDim.x, alpha3);
+		setSharedWave(wave, row, col, 2, 1, numWaves, numStates, blockDim.y, blockDim.x, alpha3*(u_hat + c_hat));
+		setSharedWave(wave, row, col, 2, 2, numWaves, numStates, blockDim.y, blockDim.x, alpha3*v_hat);
 	}
 };
 struct shallow_water_vertical
 {
-	__device__ void operator() (real* q_left, real* q_right, int numStates, real* u_left, real* u_right,	// input
-								real* wave, real* waveSpeeds)												// output
+	__device__ void operator() (real* q_left, real* q_right, real* u_left, real* u_right,			// input
+								int row, int col, int numStates, int numWaves,
+								real* wave, real* waveSpeeds)										// output
 	{
 		// try rearanging, or using ul and ur, vl and vr variables instead of dividing every time!
-		real g = 9.8;
+		real g = 9.8f;
 
 		real h_left   = q_left[0];
 		real hu_left  = q_left[1];
@@ -263,48 +249,144 @@ struct shallow_water_vertical
 
 
 		real c_hat = sqrt(g*h_bar);
-		
-		waveSpeeds[0] = v_hat - c_hat;
-		waveSpeeds[1] = v_hat;
-		waveSpeeds[2] = v_hat + c_hat;
+
+		setSharedSpeed(waveSpeeds, row, col, 0, numWaves, blockDim.y, blockDim.x, v_hat - c_hat);
+		setSharedSpeed(waveSpeeds, row, col, 1, numWaves, blockDim.y, blockDim.x, v_hat);
+		setSharedSpeed(waveSpeeds, row, col, 2, numWaves, blockDim.y, blockDim.x, v_hat + c_hat);
 
 		real alpha1 = 0.5f*((v_hat + c_hat)*(h_right - h_left) - (hv_right - hv_left))/c_hat;
 		real alpha2 = -(hu_right-hu_left) + u_hat*(h_right - h_left);
 		real alpha3 = 0.5f*((c_hat - v_hat)*(h_right - h_left) + (hv_right - hv_left))/c_hat;
 
-
-		wave[0 + 0*numStates] = alpha1;
-		wave[1 + 0*numStates] = alpha1*u_hat;
-		wave[2 + 0*numStates] = alpha1*(v_hat - c_hat);
-
-		wave[0 + 1*numStates] = 0.0f;
-		wave[1 + 1*numStates] = -alpha2;
-		wave[2 + 1*numStates] = 0.0f;
-
-		wave[0 + 2*numStates] = alpha3;
-		wave[1 + 2*numStates] = alpha3*u_hat;
-		wave[2 + 2*numStates] = alpha3*(v_hat + c_hat);
+		setSharedWave(wave, row, col, 0, 0, numWaves, numStates, blockDim.y, blockDim.x, alpha1);
+		setSharedWave(wave, row, col, 0, 1, numWaves, numStates, blockDim.y, blockDim.x, alpha1*u_hat);
+		setSharedWave(wave, row, col, 0, 2, numWaves, numStates, blockDim.y, blockDim.x, alpha1*(v_hat - c_hat));
+		
+		setSharedWave(wave, row, col, 1, 0, numWaves, numStates, blockDim.y, blockDim.x, 0.0f);
+		setSharedWave(wave, row, col, 1, 1, numWaves, numStates, blockDim.y, blockDim.x, -alpha2);
+		setSharedWave(wave, row, col, 1, 2, numWaves, numStates, blockDim.y, blockDim.x, 0.0f);
+		
+		setSharedWave(wave, row, col, 2, 0, numWaves, numStates, blockDim.y, blockDim.x, alpha3);
+		setSharedWave(wave, row, col, 2, 1, numWaves, numStates, blockDim.y, blockDim.x, alpha3*u_hat);
+		setSharedWave(wave, row, col, 2, 2, numWaves, numStates, blockDim.y, blockDim.x, alpha3*(v_hat + c_hat));
+	}
+};
+struct Burger_horizontal
+{
+	inline __device__ void operator() (	real* q_left, real* q_right, real* u_left, real* u_right,			// input
+										int row, int col, int numStates, int numWaves,
+										real* wave, real* waveSpeeds)										// output
+	{
+		real theta = u_left[0];
+		real a = 0.5f*cos(theta);
+		
+		setSharedWave(wave, row, col, 0, 0, numWaves, numStates, blockDim.y, blockDim.x, q_right[0] - q_left[0]);
+		
+		setSharedSpeed(waveSpeeds, row, col, 0, numWaves, blockDim.y, blockDim.x, a*(q_left[0] + q_right[0]));
+	}
+};
+struct Burger_vertical
+{
+	inline __device__ void operator() (	real* q_left, real* q_right, real* u_left, real* u_right,			// input
+										int row, int col, int numStates, int numWaves,
+										real* wave, real* waveSpeeds)										// output
+	{
+		real theta = u_left[0];
+		real a = 0.5f*sin(theta);
+		
+		setSharedSpeed(waveSpeeds, row, col, 0, numWaves, blockDim.y, blockDim.x, a*(q_left[0] + q_right[0]));
+		
+		setSharedWave(wave, row, col, 0, 0, numWaves, numStates, blockDim.y, blockDim.x, q_right[0] - q_left[0]);
 	}
 };
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////   Limiters   //////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-template<const int numStates, class Limiter>
-__device__ real limiting (Limiter phi, real* main_wave, real* aux_wave)
+template<const int numStates, const int numWaves, const int blockSizeX, const int blockSizeY, class Limiter>
+__device__ real limiting_shared_h_l (Limiter phi, real* waves, int row, int col, int waveNum)
 {
-	real main_wave_norm_square = main_wave[0]*main_wave[0];
-	real aux_wave_dot_main_wave = aux_wave[0]*main_wave[0];
+	real main_wave = getSharedWave(waves, row, col,   waveNum, 0, numWaves, numStates, blockSizeY, blockSizeX);
+	real aux_wave  = getSharedWave(waves, row, col+1, waveNum, 0, numWaves, numStates, blockSizeY, blockSizeX);
+	real main_wave_norm_square = main_wave*main_wave;
+	real aux_wave_dot_main_wave = aux_wave*main_wave;
 	#pragma unroll
 	for (int i = 1; i < numStates; i++)
 	{
-		main_wave_norm_square += main_wave[i]*main_wave[i];
-		aux_wave_dot_main_wave += aux_wave[i]*main_wave[i];
+		main_wave = getSharedWave(waves, row, col,   waveNum, i, numWaves, numStates, blockSizeY, blockSizeX);
+		aux_wave  = getSharedWave(waves, row, col+1, waveNum, i, numWaves, numStates, blockSizeY, blockSizeX);
+
+		main_wave_norm_square += main_wave*main_wave;
+		aux_wave_dot_main_wave += aux_wave*main_wave;
 	}
 
 	if (main_wave_norm_square < EPSILON)
 		return (real)1.0f;
 	return phi(aux_wave_dot_main_wave/main_wave_norm_square);
 }
+template<const int numStates, const int numWaves, const int blockSizeX, const int blockSizeY, class Limiter>
+__device__ real limiting_shared_h_r (Limiter phi, real* waves, int row, int col, int waveNum)
+{
+	real main_wave = getSharedWave(waves, row, col,   waveNum, 0, numWaves, numStates, blockSizeY, blockSizeX);
+	real aux_wave  = getSharedWave(waves, row, col-1, waveNum, 0, numWaves, numStates, blockSizeY, blockSizeX);
+	real main_wave_norm_square = main_wave*main_wave;
+	real aux_wave_dot_main_wave = aux_wave*main_wave;
+	#pragma unroll
+	for (int i = 1; i < numStates; i++)
+	{
+		main_wave = getSharedWave(waves, row, col,   waveNum, i, numWaves, numStates, blockSizeY, blockSizeX);
+		aux_wave  = getSharedWave(waves, row, col-1, waveNum, i, numWaves, numStates, blockSizeY, blockSizeX);
+
+		main_wave_norm_square += main_wave*main_wave;
+		aux_wave_dot_main_wave += aux_wave*main_wave;
+	}
+
+	if (main_wave_norm_square < EPSILON)
+		return (real)1.0f;
+	return phi(aux_wave_dot_main_wave/main_wave_norm_square);
+}
+template<const int numStates, const int numWaves, const int blockSizeX, const int blockSizeY, class Limiter>
+__device__ real limiting_shared_v_u (Limiter phi, real* waves, int row, int col, int waveNum)
+{
+	real main_wave = getSharedWave(waves, row,   col, waveNum, 0, numWaves, numStates, blockSizeY, blockSizeX);
+	real aux_wave  = getSharedWave(waves, row-1, col, waveNum, 0, numWaves, numStates, blockSizeY, blockSizeX);
+	real main_wave_norm_square = main_wave*main_wave;
+	real aux_wave_dot_main_wave = aux_wave*main_wave;
+	#pragma unroll
+	for (int i = 1; i < numStates; i++)
+	{
+		main_wave = getSharedWave(waves, row,   col, waveNum, i, numWaves, numStates, blockSizeY, blockSizeX);
+		aux_wave  = getSharedWave(waves, row-1, col, waveNum, i, numWaves, numStates, blockSizeY, blockSizeX);
+
+		main_wave_norm_square += main_wave*main_wave;
+		aux_wave_dot_main_wave += aux_wave*main_wave;
+	}
+
+	if (main_wave_norm_square < EPSILON)
+		return (real)1.0f;
+	return phi(aux_wave_dot_main_wave/main_wave_norm_square);
+}
+template<const int numStates, const int numWaves, const int blockSizeX, const int blockSizeY, class Limiter>
+__device__ real limiting_shared_v_d (Limiter phi, real* waves, int row, int col, int waveNum)
+{
+	real main_wave = getSharedWave(waves, row,   col, waveNum, 0, numWaves, numStates, blockSizeY, blockSizeX);
+	real aux_wave  = getSharedWave(waves, row+1, col, waveNum, 0, numWaves, numStates, blockSizeY, blockSizeX);
+	real main_wave_norm_square = main_wave*main_wave;
+	real aux_wave_dot_main_wave = aux_wave*main_wave;
+	#pragma unroll
+	for (int i = 1; i < numStates; i++)
+	{
+		main_wave = getSharedWave(waves, row,   col, waveNum, i, numWaves, numStates, blockSizeY, blockSizeX);
+		aux_wave  = getSharedWave(waves, row+1, col, waveNum, i, numWaves, numStates, blockSizeY, blockSizeX);
+
+		main_wave_norm_square += main_wave*main_wave;
+		aux_wave_dot_main_wave += aux_wave*main_wave;
+	}
+
+	if (main_wave_norm_square < EPSILON)
+		return (real)1.0f;
+	return phi(aux_wave_dot_main_wave/main_wave_norm_square);
+}
+////////////////////////////////////////////////////////////////////
 
 struct limiter_none
 {

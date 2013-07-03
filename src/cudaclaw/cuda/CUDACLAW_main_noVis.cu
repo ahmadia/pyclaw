@@ -12,6 +12,7 @@ int main(int argc, char** argv)
 
 	// Boundary setup
 	boundaryConditions<BC_left_reflective, BC_right_reflective, BC_up_reflective, BC_down_reflective> reflective_conditions;
+	boundaryConditions<BC_left_reflective, BC_right_reflective, BC_up_reflective, BC_down_absorbing> semi_reflective_conditions;
 
 	BC_left_reflective left;
 	BC_right_reflective right;
@@ -41,43 +42,63 @@ int main(int argc, char** argv)
 	limiter_MC phi;
 	limiter_superbee phi1;
 
-	real ratio = (real)CELLSY/(real)CELLSX;
+	// Entropy fix
+	entropy_fix_Shallow_Water_horziontal ent_fix_shallow_water_h;
+	entropy_fix_Shallow_Water_vertical   ent_fix_shallow_water_v;
+	null_entropy no_entropy;
+
+	int cellsX = 128;
+	int cellsY = 128;
+	real ratio = (real)cellsY/(real)cellsX;
 
 	real simulation_start_time = 0.0f;
 	real simulation_end_time = 1.0f;
 
-	real snapshotRate = 0.1f;
+	real snapshotRate = 0.02f;
+	bool entropy_fix = false;
 
-	pdeParam problemParam = setupShallowWater(-1, 1, -1, ratio, simulation_start_time, simulation_end_time, snapshotRate, radial_plateau);
+	//pdeParam problemParam = setup(cellsX, cellsY, -1, 1, -1, ratio, entropy_fix, simulation_start_time, simulation_end_time, snapshotRate, radial_plateau);
+	real* coeffs = new real[2];
+	coeffs[0] = 4.0f;
+	coeffs[1] = 1.0f;
 
-	//pdeParam problemParam = setupAcoustics(0,1,0,ratio, /*off_circle_q/*/centered_circle_q/**/, uniform_coefficients);
+	pdeParam problemParam = setup(cellsX, cellsY, 0, 1, 0, 1, entropy_fix, simulation_start_time, simulation_end_time, snapshotRate, centered_circle_q, uniform_coefficients, coeffs);
+	delete coeffs;
 
+	solvePDE(problemParam, acoustic_h, acoustic_v, phi, reflective_conditions, no_entropy, no_entropy);
+
+	problemParam.clean();
+	gracefulExit();
+}
+
+template<class Solver_h, class Solver_v, class Limiter, class Conditions, class Entropy_h, class Entropy_v>
+void solvePDE(pdeParam &params, Solver_h solver_h, Solver_v solver_v, Limiter phi, Conditions conds, Entropy_h ent_fix_h, Entropy_v ent_fix_v)
+{
+	// This single step seems necessary for the data to show
+	step(params, solver_h, solver_v, phi, conds, ent_fix_h, ent_fix_v);
+
+	if( params.snapshots )
+		params.takeSnapshot(0, "pde data");	// take initial state snapshot
+
+	int snap_number = 1;
+	
 	real simulationTime = 0.0f;
 	real simulationStepTime = 0.0f;
 	real simulationTimeInterval = 0.0f;
-
-	// This single step seems necessary for the data to show
-	step<shallow_water_horizontal, shallow_water_vertical, limiter_MC, boundaryConditions<BC_left_reflective, BC_right_reflective, BC_up_reflective, BC_down_reflective>>(problemParam, shallow_water_h, shallow_water_v, phi, reflective_conditions);
-	problemParam.takeSnapshot(0, "pde data");	// take initial state snapshot
-
-	int snap_number = 1;
-
-	while (simulationTime < problemParam.endTime)
+	while (simulationTime < params.endTime)
 	{
-		simulationStepTime = step<shallow_water_horizontal, shallow_water_vertical, limiter_MC, boundaryConditions<BC_left_reflective, BC_right_reflective, BC_up_reflective, BC_down_reflective>>(problemParam, shallow_water_h, shallow_water_v, phi, reflective_conditions);
+		simulationStepTime = step(params, solver_h, solver_v, phi, conds, ent_fix_h, ent_fix_v);
 		printf("Simulation Time is: %fs\n", simulationTime);
 
 		simulationTime += simulationStepTime;
 		simulationTimeInterval += simulationStepTime;
-		if (simulationTimeInterval > problemParam.snapshotTimeInterval)
+		if (params.snapshots && simulationTimeInterval > params.snapshotTimeInterval)
 		{
-			problemParam.takeSnapshot(snap_number, "pde data");
+			params.takeSnapshot(snap_number, "pde data");
 			simulationTimeInterval = 0.0f;
 			snap_number++;
 		}
 	}
-	problemParam.clean();
-	gracefulExit();
 }
 
 void setupCUDA()

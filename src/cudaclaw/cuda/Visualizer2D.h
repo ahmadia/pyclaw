@@ -6,8 +6,8 @@
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////  Constructor/Destructor  ///////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-template<class Riemann_h, class Riemann_v, class Limiter, class BCS>
-Visualizer2D<Riemann_h, Riemann_v, Limiter, BCS>::Visualizer2D()
+template<class Riemann_h, class Riemann_v, class Limiter, class BCS, class Ent_h, class Ent_v>
+Visualizer2D<Riemann_h, Riemann_v, Limiter, BCS, Ent_h, Ent_v>::Visualizer2D()
 {
 	w_width = 512;
 	w_height = 512;
@@ -19,6 +19,7 @@ Visualizer2D<Riemann_h, Riemann_v, Limiter, BCS>::Visualizer2D()
 	step_once = false;
 	stopDisplay = false;
 	colorScheme = true;
+	force_continue = false;
 	intensity = 1.0f;
 	floor = 0.0f;
 	ceil = 1.0f;
@@ -26,8 +27,8 @@ Visualizer2D<Riemann_h, Riemann_v, Limiter, BCS>::Visualizer2D()
 
 	PBO_DISP_CUDA_resource = NULL;
 }
-template<class Riemann_h, class Riemann_v, class Limiter, class BCS>
-Visualizer2D<Riemann_h, Riemann_v, Limiter, BCS>::Visualizer2D(int window_width, int window_height, int dispResX, int dispResY)
+template<class Riemann_h, class Riemann_v, class Limiter, class BCS, class Ent_h, class Ent_v>
+Visualizer2D<Riemann_h, Riemann_v, Limiter, BCS, Ent_h, Ent_v>::Visualizer2D(int window_width, int window_height, int dispResX, int dispResY)
 {
 	w_width = window_width;
 	w_height = window_height;
@@ -42,6 +43,7 @@ Visualizer2D<Riemann_h, Riemann_v, Limiter, BCS>::Visualizer2D(int window_width,
 	step_once = false;
 	stopDisplay = false;
 	colorScheme = true;
+	force_continue = false;
 	intensity = 1.0f;
 	floor = 0.0f;
 	ceil = 1.0f;
@@ -51,21 +53,20 @@ Visualizer2D<Riemann_h, Riemann_v, Limiter, BCS>::Visualizer2D(int window_width,
 	// The rest of the members will be initialized
 	// once the driver is set, and the opengl context launched
 }
-template<class Riemann_h, class Riemann_v, class Limiter, class BCS>
-Visualizer2D<Riemann_h, Riemann_v, Limiter, BCS>::~Visualizer2D()
+template<class Riemann_h, class Riemann_v, class Limiter, class BCS, class Ent_h, class Ent_v>
+Visualizer2D<Riemann_h, Riemann_v, Limiter, BCS, Ent_h, Ent_v>::~Visualizer2D()
 {
 	param->clean();
 	glDeleteTextures(1, &textureId);
-	//delete PBO_DISP_data_d;
 	cudaGraphicsUnregisterResource(PBO_DISP_CUDA_resource);
-	glDeleteBuffersARB(1, &dispPBO);
+	glDeleteBuffersARB(1, &dispPBO); // this does essentially: delete PBO_DISP_data_d
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////  OpenGL Setup/Launch  ////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-template<class Riemann_h, class Riemann_v, class Limiter, class BCS>
-inline void Visualizer2D<Riemann_h, Riemann_v, Limiter, BCS>::InitGl()
+template<class Riemann_h, class Riemann_v, class Limiter, class BCS, class Ent_h, class Ent_v>
+inline void Visualizer2D<Riemann_h, Riemann_v, Limiter, BCS, Ent_h, Ent_v>::InitGl()
 {
 	glEnable(GL_DEPTH_TEST);    //Makes 3D drawing work when something is in front of something else
 	glEnable(GL_NORMALIZE);		//Normalizes vectors that should be normalized
@@ -78,8 +79,8 @@ inline void Visualizer2D<Riemann_h, Riemann_v, Limiter, BCS>::InitGl()
 	//glClearColor(0.2f,0.15f,0.2f,1.0f);	// Background color
 	glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 }
-template<class Riemann_h, class Riemann_v, class Limiter, class BCS>
-inline void Visualizer2D<Riemann_h, Riemann_v, Limiter, BCS>::initializeDisplay()
+template<class Riemann_h, class Riemann_v, class Limiter, class BCS, class Ent_h, class Ent_v>
+inline void Visualizer2D<Riemann_h, Riemann_v, Limiter, BCS, Ent_h, Ent_v>::initializeDisplay()
 {
 	// Initialize gl elements
 	InitGl();
@@ -161,8 +162,8 @@ inline void Visualizer2D<Riemann_h, Riemann_v, Limiter, BCS>::initializeDisplay(
 	cudaError_t ret = cudaGraphicsGLRegisterBuffer(&PBO_DISP_CUDA_resource, dispPBO, cudaGraphicsMapFlagsWriteDiscard);
 	glBindBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, 0);
 }
-template<class Riemann_h, class Riemann_v, class Limiter, class BCS>
-inline void Visualizer2D<Riemann_h, Riemann_v, Limiter, BCS>::reshapeWindow(int w, int h)
+template<class Riemann_h, class Riemann_v, class Limiter, class BCS, class Ent_h, class Ent_v>
+inline void Visualizer2D<Riemann_h, Riemann_v, Limiter, BCS, Ent_h, Ent_v>::reshapeWindow(int w, int h)
 {
 	// Prevent a divide by zero, when window is too short
 	// (you cant make a window of zero height).
@@ -188,8 +189,8 @@ inline void Visualizer2D<Riemann_h, Riemann_v, Limiter, BCS>::reshapeWindow(int 
 			  0.0,  0.0,  -5.0,		//The point we're looking at
 			  0.0f, 1.0f,  0.0f);	//The up vector
 }
-template<class Riemann_h, class Riemann_v, class Limiter, class BCS>
-inline void Visualizer2D<Riemann_h, Riemann_v, Limiter, BCS>::drawCanvas()
+template<class Riemann_h, class Riemann_v, class Limiter, class BCS, class Ent_h, class Ent_v>
+inline void Visualizer2D<Riemann_h, Riemann_v, Limiter, BCS, Ent_h, Ent_v>::drawCanvas()
 {
 	glTranslatef(0.0, 0.0, 0.0);
 	//canvas
@@ -230,8 +231,8 @@ inline void Visualizer2D<Riemann_h, Riemann_v, Limiter, BCS>::drawCanvas()
 
 	glEnd();
 }
-template<class Riemann_h, class Riemann_v, class Limiter, class BCS>
-inline void Visualizer2D<Riemann_h, Riemann_v, Limiter, BCS>::launchDisplay()
+template<class Riemann_h, class Riemann_v, class Limiter, class BCS, class Ent_h, class Ent_v>
+inline void Visualizer2D<Riemann_h, Riemann_v, Limiter, BCS, Ent_h, Ent_v>::launchDisplay()
 {
 	glutMainLoop();
 }
@@ -239,33 +240,39 @@ inline void Visualizer2D<Riemann_h, Riemann_v, Limiter, BCS>::launchDisplay()
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////  Problem Setup  ////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-template<class Riemann_h, class Riemann_v, class Limiter, class BCS>
-inline void Visualizer2D<Riemann_h, Riemann_v, Limiter, BCS>::setParam(pdeParam &pdeParameters)
+template<class Riemann_h, class Riemann_v, class Limiter, class BCS, class Ent_h, class Ent_v>
+inline void Visualizer2D<Riemann_h, Riemann_v, Limiter, BCS, Ent_h, Ent_v>::setParam(pdeParam &pdeParameters)
 {
 	param = &pdeParameters;
 }
-template<class Riemann_h, class Riemann_v, class Limiter, class BCS>
-inline void Visualizer2D<Riemann_h, Riemann_v, Limiter, BCS>::setBoundaryConditions(BCS conditions)
+template<class Riemann_h, class Riemann_v, class Limiter, class BCS, class Ent_h, class Ent_v>
+inline void Visualizer2D<Riemann_h, Riemann_v, Limiter, BCS, Ent_h, Ent_v>::setBoundaryConditions(BCS conditions)
 {
 	boundary_conditions = conditions;
 }
-template<class Riemann_h, class Riemann_v, class Limiter, class BCS>
-inline void Visualizer2D<Riemann_h, Riemann_v, Limiter, BCS>::setSolvers(Riemann_h horizontalSolver, Riemann_v verticalSolver)
+template<class Riemann_h, class Riemann_v, class Limiter, class BCS, class Ent_h, class Ent_v>
+inline void Visualizer2D<Riemann_h, Riemann_v, Limiter, BCS, Ent_h, Ent_v>::setSolvers(Riemann_h horizontalSolver, Riemann_v verticalSolver)
 {
 	horizontal_solver = horizontalSolver;
 	vertical_solver = verticalSolver;
 }
-template<class Riemann_h, class Riemann_v, class Limiter, class BCS>
-inline void Visualizer2D<Riemann_h, Riemann_v, Limiter, BCS>::setLimiter(Limiter phiLimiter)
+template<class Riemann_h, class Riemann_v, class Limiter, class BCS, class Ent_h, class Ent_v>
+inline void Visualizer2D<Riemann_h, Riemann_v, Limiter, BCS, Ent_h, Ent_v>::setLimiter(Limiter phiLimiter)
 {
 	limiter_function = phiLimiter;
+}
+template<class Riemann_h, class Riemann_v, class Limiter, class BCS, class Ent_h, class Ent_v>
+inline void Visualizer2D<Riemann_h, Riemann_v, Limiter, BCS, Ent_h, Ent_v>::setEntropy(Ent_h entropy_fix_horizontal, Ent_v entropy_fix_vertical)
+{
+	entropy_fix_h = entropy_fix_horizontal;
+	entropy_fix_v = entropy_fix_vertical;
 }
 
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////  OpenGL Interactivity  ////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-template<class Riemann_h, class Riemann_v, class Limiter, class BCS>
-inline void Visualizer2D<Riemann_h, Riemann_v, Limiter, BCS>::getOGLPos(int mouseX, int mouseY, GLdouble &coordX, GLdouble &coordY, GLdouble &coordZ)
+template<class Riemann_h, class Riemann_v, class Limiter, class BCS, class Ent_h, class Ent_v>
+inline void Visualizer2D<Riemann_h, Riemann_v, Limiter, BCS, Ent_h, Ent_v>::getOGLPos(int mouseX, int mouseY, GLdouble &coordX, GLdouble &coordY, GLdouble &coordZ)
 {
 	GLint viewport[4];
 	GLdouble modelview[16];
@@ -319,18 +326,19 @@ inline void Visualizer2D<Riemann_h, Riemann_v, Limiter, BCS>::getOGLPos(int mous
 //extern "C" void doImpulse(GLdouble impulseX, GLdouble impulseY, GLdouble impulseZ,
 //							pdeParam &param, Visualizer2D &vis);
 
-template<class Riemann_h, class Riemann_v, class Limiter, class BCS>
-inline void Visualizer2D<Riemann_h, Riemann_v, Limiter, BCS>::normalKeyPress(unsigned char key, int x, int y)
+template<class Riemann_h, class Riemann_v, class Limiter, class BCS, class Ent_h, class Ent_v>
+inline void Visualizer2D<Riemann_h, Riemann_v, Limiter, BCS, Ent_h, Ent_v>::normalKeyPress(unsigned char key, int x, int y)
 {
 	if (key == 27)	// escape
 	{
-		//delete GlutInterface<Riemann_h, Riemann_v>::visualizer;
-		param->clean();
-		glDeleteTextures(1, &textureId);
-		cudaGraphicsUnregisterResource(PBO_DISP_CUDA_resource);
-		glDeleteBuffersARB(1, &dispPBO);
-		cudaThreadExit();
-		exit(0);
+		gracefulExit();
+		//param->clean();
+		//glDeleteTextures(1, &textureId);
+		//cudaGraphicsUnregisterResource(PBO_DISP_CUDA_resource);
+		//glDeleteBuffersARB(1, &dispPBO); // this does essentially: delete PBO_DISP_data_d
+		//
+		//cudaThreadExit();
+		//exit(0);
 	}
 	int maxNumStates = param->numStates;
 	switch(key)
@@ -363,7 +371,11 @@ inline void Visualizer2D<Riemann_h, Riemann_v, Limiter, BCS>::normalKeyPress(uns
 	case 'c':
 	case 'C':
 		stopDisplay = !stopDisplay; break;
-		
+	
+	case 'f':
+	case 'F':
+		force_continue = true;break;
+
 	case 'g':
 	case 'G':
 		colorScheme = !colorScheme; break;
@@ -411,8 +423,8 @@ inline void Visualizer2D<Riemann_h, Riemann_v, Limiter, BCS>::normalKeyPress(uns
 		break;
 	}
 }
-template<class Riemann_h, class Riemann_v, class Limiter, class BCS>
-inline void Visualizer2D<Riemann_h, Riemann_v, Limiter, class BCS>::mouseClick(int button, int state, int x, int y)
+template<class Riemann_h, class Riemann_v, class Limiter, class BCS, class Ent_h, class Ent_v>
+inline void Visualizer2D<Riemann_h, Riemann_v, Limiter, class BCS, class Ent_h, class Ent_v>::mouseClick(int button, int state, int x, int y)
 {
 	if (state == GLUT_DOWN)
 	{
@@ -432,8 +444,8 @@ inline void Visualizer2D<Riemann_h, Riemann_v, Limiter, class BCS>::mouseClick(i
 /////////////////////////////////////////////////  GPU Capability  //////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 // Check for PBO and NPOT texture support on the video card
-template<class Riemann_h, class Riemann_v, class Limiter, class BCS>
-inline void Visualizer2D<Riemann_h, Riemann_v,  Limiter, BCS>::checkGPUCompatibility()
+template<class Riemann_h, class Riemann_v, class Limiter, class BCS, class Ent_h, class Ent_v>
+inline void Visualizer2D<Riemann_h, Riemann_v,  Limiter, BCS, Ent_h, Ent_v>::checkGPUCompatibility()
 {
 	glInfo.getInfo();
 
@@ -493,10 +505,11 @@ inline void Visualizer2D<Riemann_h, Riemann_v,  Limiter, BCS>::checkGPUCompatibi
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 ////////////////////////////////////////////////////  Main Loop  ////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-template<class Riemann_h, class Riemann_v, class Limiter, class BCS>
-inline void Visualizer2D<Riemann_h, Riemann_v, Limiter, BCS>::visualizePDE()
+template<class Riemann_h, class Riemann_v, class Limiter, class BCS, class Ent_h, class Ent_v>
+inline void Visualizer2D<Riemann_h, Riemann_v, Limiter, BCS, Ent_h, Ent_v>::visualizePDE()
 {
 	static real simulation_time = (real)0.0f;
+	static real simulation_stepTime = (real)0.0f;
 	static real simulation_timestamp = (real)0.0f;
 	Timer mainLoopTimer;
 	Timer stepWatch;
@@ -515,6 +528,25 @@ inline void Visualizer2D<Riemann_h, Riemann_v, Limiter, BCS>::visualizePDE()
 
 	/***********************************************Display and Update***********************************************/
 	
+	// snapshot control
+	if (param->snapshots)
+	{
+		static int snap_number = 1;
+
+		if( snap_number == 1 && param->snapshotTimeInterval == (real)0.0f )
+			param->takeSnapshot(0, "pde data");	// take initial state snapshot
+
+		static real simulationTimeInterval = (real) 0.0f;
+
+		simulationTimeInterval += simulation_stepTime;
+		if (simulationTimeInterval > param->snapshotTimeInterval)
+		{
+			param->takeSnapshot(snap_number, "pde data");
+			simulationTimeInterval = (real) 0.0f;
+			snap_number++;
+		}
+	}
+
 	if (!stopDisplay && simulation_timestamp >= (real)0.001f )		// simulation view speed, we view the simulation every x (0.001) seconds, TODO: make this a controllable variable
 	{
 		copyWatch.start();
@@ -522,7 +554,7 @@ inline void Visualizer2D<Riemann_h, Riemann_v, Limiter, BCS>::visualizePDE()
 		cudaGraphicsResourceGetMappedPointer((void **)&PBO_DISP_data_d, &displaySize, PBO_DISP_CUDA_resource);
 
 		// This function can be modified to put the read data into a format that can be used for colored mapping
-		copyDisplayData_Flat(PBO_DISP_data_d, dispResolutionX, dispResolutionY,
+		copyDisplayData(PBO_DISP_data_d, dispResolutionX, dispResolutionY,
 						param->qNew, param->cellsX, param->cellsY, param->numStates, param->ghostCells,
 						state_display, boundary_display, colorScheme, intensity, floor, ceil);/**/
 
@@ -551,11 +583,12 @@ inline void Visualizer2D<Riemann_h, Riemann_v, Limiter, BCS>::visualizePDE()
 
 	glBindBufferARB(GL_PIXEL_UNPACK_BUFFER_ARB, 0);
 	
-	if ( !hold || (hold && step_once) )
+	if ( (!hold || (hold && step_once)) && (simulation_time < param->endTime || force_continue) )
 	{
 			stepWatch.start();
-			simulation_timestamp += step(*param, horizontal_solver, vertical_solver, limiter_function, boundary_conditions);
-			cudaThreadSynchronize();
+			simulation_stepTime = step(*param, horizontal_solver, vertical_solver, limiter_function, boundary_conditions, entropy_fix_h, entropy_fix_v);
+			simulation_timestamp += simulation_stepTime;
+			//cudaThreadSynchronize();
 			stepWatch.stop();
 	}
 	if (step_once)
@@ -573,8 +606,8 @@ inline void Visualizer2D<Riemann_h, Riemann_v, Limiter, BCS>::visualizePDE()
 
 	update(stepWatch.getElapsedTimeInMilliSec(), copyWatch.getElapsedTimeInMilliSec(), mainLoopTimer.getElapsedTimeInMilliSec());	// pass the simulation time to this to display
 }
-template<class Riemann_h, class Riemann_v, class Limiter, class BCS>
-inline void Visualizer2D<Riemann_h, Riemann_v, Limiter, BCS>::checkChanges()
+template<class Riemann_h, class Riemann_v, class Limiter, class BCS, class Ent_h, class Ent_v>
+inline void Visualizer2D<Riemann_h, Riemann_v, Limiter, BCS, Ent_h, Ent_v>::checkChanges()
 {/*
 	if (makeImpulse)
 	{	
@@ -605,8 +638,8 @@ inline void Visualizer2D<Riemann_h, Riemann_v, Limiter, BCS>::checkChanges()
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 //////////////////////////////////////////////////////  Timers  /////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-template<class Riemann_h, class Riemann_v, class Limiter, class BCS>
-void Visualizer2D<Riemann_h, Riemann_v, Limiter, BCS>::update(double compute_time, double copy_time, double total_time)
+template<class Riemann_h, class Riemann_v, class Limiter, class BCS, class Ent_h, class Ent_v>
+void Visualizer2D<Riemann_h, Riemann_v, Limiter, BCS, Ent_h, Ent_v>::update(double compute_time, double copy_time, double total_time)
 {
 	static float aggregate_compute_time = 0.0;
 	static float aggregate_copy_time = 0.0;
@@ -656,6 +689,7 @@ void Visualizer2D<Riemann_h, Riemann_v, Limiter, BCS>::update(double compute_tim
 //////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 
 // Some getter functions similiar to those in pdeParam struct
+// Row major order, not used
 inline __device__ int getIndex_q(int cellsX, int cellsY, int numStates, int row, int column, int state)
 {
 	// Usual C/C++ row major order
@@ -753,7 +787,7 @@ float setRangePerFrame(Float * data_gpu, int width, int paddedWidth, int height,
 		return halfRange;
 }*/
 
-__global__ void copyDisplay_Flat_Kernel(GLfloat* PBO, int dispResolutionX, int dispResolutionY,
+__global__ void copyDisplay_Kernel(GLfloat* PBO, int dispResolutionX, int dispResolutionY,
 									real* q, int cellsX, int cellsY, int numStates, int ghostCells,
 									int state_display, bool boundary_display, bool colorScheme, GLfloat intensity, GLfloat floor, GLfloat ceil)
 {
@@ -805,7 +839,7 @@ __global__ void copyDisplay_Flat_Kernel(GLfloat* PBO, int dispResolutionX, int d
 	}
 }
 
-extern "C" void copyDisplayData_Flat(GLfloat* PBO, int dispResolutionX, int dispResolutionY,
+extern "C" void copyDisplayData(GLfloat* PBO, int dispResolutionX, int dispResolutionY,
 								real* q, int cellsX, int cellsY, int numStates, int ghostCells,
 								int state_display, bool boundary_display, bool colorScheme, GLfloat intensity, GLfloat floor, GLfloat ceil)
 {
@@ -823,7 +857,7 @@ extern "C" void copyDisplayData_Flat(GLfloat* PBO, int dispResolutionX, int disp
 
 	//range = setRangePerFrame(data, width, paddedWidth, height, numBoundCellsX, numBoundCellsY); //?
 
-	copyDisplay_Flat_Kernel<<<dimGrid, dimBlock>>>(PBO, dispResolutionX, dispResolutionY,
+	copyDisplay_Kernel<<<dimGrid, dimBlock>>>(PBO, dispResolutionX, dispResolutionY,
 												q, cellsX, cellsY, numStates, ghostCells,
 												state_display, boundary_display, colorScheme, intensity, floor, ceil);
 }
@@ -886,52 +920,5 @@ extern "C" void doImpulse(GLdouble impulseX, GLdouble impulseY, GLdouble impulse
 }
 
 */
-
-__global__ void copyDisplay_Kernel(GLfloat* PBO, int dispResolutionX, int dispResolutionY,						// DEPRECATED
-									real* q, int cellsX, int cellsY, int numStates, int ghostCells,
-									int state_display, bool boundary_display, GLfloat intensity)
-{
-	int col = blockIdx.y*blockDim.y + threadIdx.y;
-	int row = blockIdx.x*blockDim.x + threadIdx.x;
-
-	if ( col < cellsX && row < cellsY )
-	{
-		if (!boundary_display)
-		{
-			if (col < ghostCells || col >= cellsX - ghostCells)
-				setDisplayPBO_grayScale(PBO, dispResolutionX, dispResolutionY, row, col, 0.0f);
-			else if (row < ghostCells || row >= cellsY - ghostCells)
-				setDisplayPBO_grayScale(PBO, dispResolutionX, dispResolutionY, row, col, 0.0f);
-			else
-				setDisplayPBO_grayScale(PBO, dispResolutionX, dispResolutionY, row, col, intensity*getElement_q(q, cellsX, cellsY, numStates, row, col, state_display));
-		}
-		else
-			setDisplayPBO_grayScale(PBO, dispResolutionX, dispResolutionY, row, col, intensity*getElement_q(q, cellsX, cellsY, numStates, row, col, state_display));
-	}
-}
-
-
-extern "C" void copyDisplayData(GLfloat* PBO, int dispResolutionX, int dispResolutionY,							// DEPRECATED
-								real* q, int cellsX, int cellsY, int numStates, int ghostCells,
-								int state_display, bool boundary_display, GLfloat intensity)
-{
-	// this function would be more interesting when GPU does not support non power of two textures //?
-
-	// kernel to copy the data from vis.param.qNew to vis.PBO_DISP_data_d
-	unsigned int blockDimensionX = 32;
-	unsigned int blockDimensionY = 16;
-
-	unsigned int gridDimensionX = (dispResolutionX+blockDimensionX-1)/blockDimensionX;
-	unsigned int gridDimensionY = (dispResolutionY+blockDimensionY-1)/blockDimensionY;
-
-	dim3 dimGrid(gridDimensionX, gridDimensionY);
-	dim3 dimBlock(blockDimensionX, blockDimensionY);
-
-	//range = setRangePerFrame(data, width, paddedWidth, height, numBoundCellsX, numBoundCellsY); //?
-
-	copyDisplay_Kernel<<<dimGrid, dimBlock>>>(PBO, dispResolutionX, dispResolutionY,
-												q, cellsX, cellsY, numStates, ghostCells,
-												state_display, boundary_display, intensity);
-}
 
 #endif	// VISUALIZER2D

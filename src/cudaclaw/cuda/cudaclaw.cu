@@ -8,6 +8,8 @@
 #define GPU_RELEASE 0
 #define GPU_DEBUG 1
 
+#define CHKERRQ(n) if (n) { printf("CUDA error: %s\n", cudaGetErrorString(n)); return n; }
+
 void setupCUDA();
 
 template <class T>
@@ -104,28 +106,21 @@ int hyperbolic_solver_2d_step (real dt, real* next_dt)
 			   entropy_fix_v);
 
     err = cudaMemcpy(next_dt, param->dt_used, sizeof(real), cudaMemcpyDeviceToHost);
-
-    if (err != cudaSuccess) {
-    	return err;
-    }
+    CHKERRQ(err);
     return 0;
 }
 
 int hyperbolic_solver_2d_get_qbc (real* qbc)
 {
     err = cudaMemcpy(qbc, param->qNew, qbc_size, cudaMemcpyDeviceToHost);
-    if (err != cudaSuccess) {
-    	return err;
-    }
+    CHKERRQ(err);
     return 0;
 }
 
 int hyperbolic_solver_2d_set_qbc (real* qbc)
 {
     err = cudaMemcpy(param->qNew, qbc, qbc_size, cudaMemcpyHostToDevice);
-    if (err != cudaSuccess) {
-    	return err;
-    }
+    CHKERRQ(err);
     return 0;
 }
 

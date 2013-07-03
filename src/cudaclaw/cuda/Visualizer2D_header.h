@@ -11,7 +11,7 @@
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////   Visualizer 2D Class  ////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-template <class Riemann_h, class Riemann_v, class Limiter, class BCS>
+template <class Riemann_h, class Riemann_v, class Limiter, class BCS, class Ent_h, class Ent_v>
 class Visualizer2D
 {
 public:
@@ -24,6 +24,8 @@ public:
 	Riemann_h horizontal_solver;
 	Riemann_v vertical_solver;
 	Limiter limiter_function;
+	Ent_h entropy_fix_h;
+	Ent_v entropy_fix_v;
 
 	// display variables
 	// window
@@ -51,6 +53,7 @@ public:
 	bool step_once;			// allows to step a single step of computation
 	bool stopDisplay;		// toggles the data copy to display operation
 	bool colorScheme;		// rotates between grayscale and color scheme
+	bool force_continue;	// forces solver continue, seal type, can only be turned on not off
 	GLfloat floor;			// adjust the range of values to be between floor and ceil 
 	GLfloat ceil;			// to avoid cutting off values outside this range
 	GLfloat intensity;
@@ -80,6 +83,7 @@ public:
 	inline void setBoundaryConditions(BCS conditions);
 	inline void setSolvers(Riemann_h horizontalSolver, Riemann_v verticalSolver);
 	inline void setLimiter(Limiter phiLimiter);
+	inline void setEntropy(Ent_h entropy_fix_horizontal, Ent_v entropy_fix_vertical);
 
 	// auxillary functions
 	//float findAbsMax();
@@ -110,11 +114,7 @@ public:
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////  Display Update  (signatures)//////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
-extern "C" void copyDisplayData(GLfloat* PBO, int dispResolutionX, int dispResolutionY,				// DEPRECATED
-								real* q, int cellsX, int cellsY, int numStates, int ghostCells,
-								int state_display, bool boundary_display, GLfloat intensity);
-
-extern "C" void copyDisplayData_Flat(GLfloat* PBO, int dispResolutionX, int dispResolutionY,
+extern "C" void copyDisplayData(GLfloat* PBO, int dispResolutionX, int dispResolutionY,
 								real* q, int cellsX, int cellsY, int numStates, int ghostCells,
 								int state_display, bool boundary_display, bool colorScheme, GLfloat intensity, GLfloat floor, GLfloat ceil);
 #endif	// end of visuals

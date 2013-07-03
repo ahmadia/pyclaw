@@ -14,6 +14,9 @@
 
 void setupCUDA();
 
+template<class Vis, class Solver_h, class Solver_v, class Limiter, class Conditions, class Entropy_h, class Entropy_v>
+void solvePDE(pdeParam &, Solver_h, Solver_v, Limiter, Conditions, Entropy_h, Entropy_v);
+
 template <class T>
 inline void getCudaAttribute(T *attribute, CUdevice_attribute device_attribute);
 

@@ -4,7 +4,7 @@
 #include "auxiliary_device_functions.h"
 
 template<const int numStates, const int numWaves, class Ent>
-    __device__ real entropy_fixing_h(Ent entropy_fix, real* waves, real* waveSpeeds, real* q_left, real* q_right, real* u_left, real* u_right, real* amdq, real* apdq, int row, int col)
+    __device__ void entropy_fixing_h(Ent entropy_fix, real* waves, real* waveSpeeds, real* q_left, real* q_right, real* u_left, real* u_right, real* amdq, real* apdq, int row, int col)
 {
     bool entropy_fixed = false;
     ///////////////////////////////////// Entropy Fix START
@@ -75,7 +75,7 @@ template<const int numStates, const int numWaves, class Ent>
     // /////////////////////////////////// Entropy Fix END*/
 }
 template<const int numStates, const int numWaves, class Ent>
-    __device__ real entropy_fixing_v(Ent entropy_fix, real* waves, real* waveSpeeds, real* q_left, real* q_right, real* u_left, real* u_right, real* amdq, real* apdq, int row, int col)
+    __device__ void entropy_fixing_v(Ent entropy_fix, real* waves, real* waveSpeeds, real* q_left, real* q_right, real* u_left, real* u_right, real* amdq, real* apdq, int row, int col)
 {
 
     bool entropy_fixed = false;
