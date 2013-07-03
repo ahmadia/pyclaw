@@ -1,9 +1,10 @@
 #ifndef __PARAMS_H__
 #define __PARAMS_H__
 
-#include <string>
+#include "real.h"
+#include "error.h"
 
-typedef double real;
+#include <string>
 
 struct pdeParam
 {
@@ -56,6 +57,8 @@ struct pdeParam
 pdeParam()
 : cellsX(256), cellsY(256), ghostCells(2), numStates(1), numWaves(1), numCoeff(1), startX(0), endX(1), startY(0), endY(1), startTime(0.0f), endTime(0.0f)
 	{
+	    cudaError_t err;
+
 	    width = endX-startX;
 	    height = endY-startY;
 	    dx = width/cellsX;
@@ -70,12 +73,15 @@ pdeParam()
 	    real dt_cpu = 10.0f;
 	    real dt_used_cpu = 0.0f;
 
-	    cudaError_t alloc_real1 = cudaMalloc((void**)&dt, sizeof(real));
-	    cudaError_t alloc_real2 = cudaMalloc((void**)&dt_used, sizeof(real));
-	    cudaError_t alloc_bool1 = cudaMalloc((void**)&revert, sizeof(bool));
+	    err = cudaMalloc((void**)&dt, sizeof(real)); CHKERRQ_ABORT(err);
+	    err = cudaMalloc((void**)&dt_used, sizeof(real)); CHKERRQ_ABORT(err);
+	    err = cudaMalloc((void**)&revert, sizeof(bool)); CHKERRQ_ABORT(err);
 
-	    cudaMemcpy(dt, &dt_cpu, sizeof(real), cudaMemcpyHostToDevice);
-	    cudaMemcpy(dt_used, &dt_used_cpu, sizeof(real), cudaMemcpyHostToDevice);
+	    err = cudaMemcpy(dt, &dt_cpu, sizeof(real), cudaMemcpyHostToDevice);
+	    CHKERRQ_ABORT(err);
+	    
+	    err = cudaMemcpy(dt_used, &dt_used_cpu, sizeof(real), cudaMemcpyHostToDevice);
+	    CHKERRQ_ABORT(err);
 
 	    snapshots = false;
 
@@ -84,22 +90,35 @@ pdeParam()
 	    int vertical_interfaces   = cellsX*(cellsY-1);
 
 
-	    cudaError_t alloc1 = cudaMalloc((void**)&coefficients, cells*numCoeff*sizeof(real));
+	    err = cudaMalloc((void**)&coefficients, cells*numCoeff*sizeof(real));
+	    CHKERRQ_ABORT(err);
 
-	    cudaError_t alloc2 = cudaMalloc((void**)&q, cells*numStates*sizeof(real));
-	    cudaError_t alloc3 = cudaMalloc((void**)&qNew, cells*numStates*sizeof(real));
+	    err = cudaMalloc((void**)&q, cells*numStates*sizeof(real));
+	    CHKERRQ_ABORT(err);
 
-	    cudaError_t alloc4 = cudaMalloc((void**)&wavesX, horizontal_interfaces*numWaves*numStates*sizeof(real));
-	    cudaError_t alloc5 = cudaMalloc((void**)&wavesY, vertical_interfaces*numWaves*numStates*sizeof(real));
+	    err = cudaMalloc((void**)&qNew, cells*numStates*sizeof(real));
+	    CHKERRQ_ABORT(err);
 
-	    cudaError_t alloc6 = cudaMalloc((void**)&waveSpeedsX, horizontal_interfaces*numWaves*sizeof(real));
-	    cudaError_t alloc7 = cudaMalloc((void**)&waveSpeedsY, vertical_interfaces*numWaves*sizeof(real));
+	    err = cudaMalloc((void**)&wavesX, horizontal_interfaces*numWaves*numStates*sizeof(real));
+	    CHKERRQ_ABORT(err);	    
+
+	    err = cudaMalloc((void**)&wavesY, vertical_interfaces*numWaves*numStates*sizeof(real));
+	    CHKERRQ_ABORT(err);
+
+	    err = cudaMalloc((void**)&waveSpeedsX, horizontal_interfaces*numWaves*sizeof(real));
+	    CHKERRQ_ABORT(err);
+
+	    err = cudaMalloc((void**)&waveSpeedsY, vertical_interfaces*numWaves*sizeof(real));
+	    CHKERRQ_ABORT(err);
 
 	    real* zerosX = (real*)calloc( horizontal_interfaces*numWaves, sizeof(real));
 	    real* zerosY = (real*)calloc( vertical_interfaces*numWaves, sizeof(real));
 
-	    cudaMemcpy(waveSpeedsX, zerosX, horizontal_interfaces*numWaves*sizeof(real), cudaMemcpyHostToDevice);
-	    cudaMemcpy(waveSpeedsY, zerosY, vertical_interfaces*numWaves*sizeof(real), cudaMemcpyHostToDevice);
+	    err = cudaMemcpy(waveSpeedsX, zerosX, horizontal_interfaces*numWaves*sizeof(real), cudaMemcpyHostToDevice);
+	    CHKERRQ_ABORT(err);
+
+	    err = cudaMemcpy(waveSpeedsY, zerosY, vertical_interfaces*numWaves*sizeof(real), cudaMemcpyHostToDevice);
+	    CHKERRQ_ABORT(err);
 
 	    free(zerosX);
 	    free(zerosY);
@@ -110,6 +129,8 @@ pdeParam(int cellsX, int cellsY, int ghostCells, int numStates, int numWaves, in
     cellsX(cellsX), cellsY(cellsY), ghostCells(ghostCells), numStates(numStates), numWaves(numWaves), numCoeff(numCoeff),
 	startX(startX), endX(endX), startY(startY), endY(endY), startTime(startTime), endTime(endTime)
 	{
+	    cudaError_t err;
+
 	    width = endX-startX;
 	    height = endY-startY;
 	    dx = width/cellsX;
@@ -124,12 +145,20 @@ pdeParam(int cellsX, int cellsY, int ghostCells, int numStates, int numWaves, in
 	    real dt_cpu = 0.0f;//10.0f;
 	    real dt_used_cpu = 0.0f;
 
-	    cudaError_t alloc_real1 = cudaMalloc((void**)&dt, sizeof(real));
-	    cudaError_t alloc_real2 = cudaMalloc((void**)&dt_used, sizeof(real));
-	    cudaError_t alloc_bool1 = cudaMalloc((void**)&revert, sizeof(bool));
+	    err = cudaMalloc((void**)&dt, sizeof(real));
+	    CHKERRQ_ABORT(err);
 
-	    cudaMemcpy(dt, &dt_cpu, sizeof(real), cudaMemcpyHostToDevice);
-	    cudaMemcpy(dt_used, &dt_used_cpu, sizeof(real), cudaMemcpyHostToDevice);
+	    err = cudaMalloc((void**)&dt_used, sizeof(real));
+	    CHKERRQ_ABORT(err);
+
+	    err = cudaMalloc((void**)&revert, sizeof(bool));
+	    CHKERRQ_ABORT(err);
+
+	    err = cudaMemcpy(dt, &dt_cpu, sizeof(real), cudaMemcpyHostToDevice);
+	    CHKERRQ_ABORT(err);
+
+	    err = cudaMemcpy(dt_used, &dt_used_cpu, sizeof(real), cudaMemcpyHostToDevice);
+	    CHKERRQ_ABORT(err);
 
 	    snapshots = false;
 
@@ -137,23 +166,35 @@ pdeParam(int cellsX, int cellsY, int ghostCells, int numStates, int numWaves, in
 	    int horizontal_interfaces = cellsY*(cellsX-1);
 	    int vertical_interfaces   = cellsX*(cellsY-1);
 
+	    err = cudaMalloc((void**)&coefficients, cells*numCoeff*sizeof(real));
+	    CHKERRQ_ABORT(err);
 
-	    cudaError_t alloc1 = cudaMalloc((void**)&coefficients, cells*numCoeff*sizeof(real));
+	    err = cudaMalloc((void**)&q, cells*numStates*sizeof(real));
+	    CHKERRQ_ABORT(err);	
+    
+	    err = cudaMalloc((void**)&qNew, cells*numStates*sizeof(real));
+	    CHKERRQ_ABORT(err);
 
-	    cudaError_t alloc2 = cudaMalloc((void**)&q, cells*numStates*sizeof(real));
-	    cudaError_t alloc3 = cudaMalloc((void**)&qNew, cells*numStates*sizeof(real));
+	    err = cudaMalloc((void**)&wavesX, horizontal_interfaces*numWaves*numStates*sizeof(real));
+	    CHKERRQ_ABORT(err);
 
-	    cudaError_t alloc4 = cudaMalloc((void**)&wavesX, horizontal_interfaces*numWaves*numStates*sizeof(real));
-	    cudaError_t alloc5 = cudaMalloc((void**)&wavesY, vertical_interfaces*numWaves*numStates*sizeof(real));
+	    err = cudaMalloc((void**)&wavesY, vertical_interfaces*numWaves*numStates*sizeof(real));
+	    CHKERRQ_ABORT(err);
 
-	    cudaError_t alloc6 = cudaMalloc((void**)&waveSpeedsX, horizontal_interfaces*numWaves*sizeof(real));
-	    cudaError_t alloc7 = cudaMalloc((void**)&waveSpeedsY, vertical_interfaces*numWaves*sizeof(real));
+	    err = cudaMalloc((void**)&waveSpeedsX, horizontal_interfaces*numWaves*sizeof(real));
+	    CHKERRQ_ABORT(err);
+
+	    err = cudaMalloc((void**)&waveSpeedsY, vertical_interfaces*numWaves*sizeof(real));
+	    CHKERRQ_ABORT(err);
 
 	    real* zerosX = (real*)calloc( horizontal_interfaces*numWaves, sizeof(real));
 	    real* zerosY = (real*)calloc( vertical_interfaces*numWaves, sizeof(real));
 
-	    cudaMemcpy(waveSpeedsX, zerosX, horizontal_interfaces*numWaves*sizeof(real), cudaMemcpyHostToDevice);
-	    cudaMemcpy(waveSpeedsY, zerosY, vertical_interfaces*numWaves*sizeof(real), cudaMemcpyHostToDevice);
+	    err = cudaMemcpy(waveSpeedsX, zerosX, horizontal_interfaces*numWaves*sizeof(real), cudaMemcpyHostToDevice);
+	    CHKERRQ_ABORT(err);
+
+	    err = cudaMemcpy(waveSpeedsY, zerosY, vertical_interfaces*numWaves*sizeof(real), cudaMemcpyHostToDevice);
+	    CHKERRQ_ABORT(err);
 
 	    free(zerosX);
 	    free(zerosY);

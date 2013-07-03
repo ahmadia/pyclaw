@@ -574,80 +574,83 @@ __global__ void timeStepAdjust_simple(pdeParam param)
 ///////////////////////////////////////////////   Wrapper Function   ////////////////////////////////////////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////////
 template <class Riemann_h, class Riemann_v, class Limiter, class Ent_h, class Ent_v>
-/*extern "C"*/void limited_Riemann_Update(pdeParam &param,						// Problem parameters
-										Riemann_h Riemann_pointwise_solver_h,	//
-										Riemann_v Riemann_pointwise_solver_v,	//
-										Limiter limiter_phi,						//
-										Ent_h entropy_fix_h,
-										Ent_v entropy_fix_v
-										)
+int limited_Riemann_Update(pdeParam &param,						// Problem parameters
+			   Riemann_h Riemann_pointwise_solver_h,	//
+			   Riemann_v Riemann_pointwise_solver_v,	//
+			   Limiter limiter_phi,						//
+			   Ent_h entropy_fix_h,
+			   Ent_v entropy_fix_v
+			   )
 {
-	{
-		// RIEMANN, FLUCTUATIONS and UPDATES
-		const unsigned int blockDim_XR = HORIZONTAL_K_BLOCKSIZEX;
-		const unsigned int blockDim_YR = HORIZONTAL_K_BLOCKSIZEY;
-		unsigned int gridDim_XR = (param.cellsX + (blockDim_XR-3-1)) / (blockDim_XR-3);
-		unsigned int gridDim_YR = (param.cellsY + (blockDim_YR-1)) / (blockDim_YR);
-		dim3 dimGrid_hR(gridDim_XR, gridDim_YR);
-		dim3 dimBlock_hR(blockDim_XR, blockDim_YR);
-		int shared_mem_size = HORIZONTAL_K_BLOCKSIZEX*HORIZONTAL_K_BLOCKSIZEY*NUMWAVES*(NUMSTATES+1)*sizeof(real);
-
-		Riemann_horizontal_kernel<NUMSTATES, NUMWAVES, NUMCOEFF, HORIZONTAL_K_BLOCKSIZEX*HORIZONTAL_K_BLOCKSIZEY, Riemann_h, Limiter><<<dimGrid_hR, dimBlock_hR, shared_mem_size>>>(param, Riemann_pointwise_solver_h, limiter_phi, entropy_fix_h);
-
-		// REDUCTION
-		const unsigned int blockDim_X = 512;		// fine tune the best block size
-
-		size_t SharedMemorySize = (blockDim_X)*sizeof(real);
-		unsigned int gridDim_X1;
-
-		gridDim_X1 = 1;
-
-		dim3 dimGrid1(gridDim_X1);
-		dim3 dimBlock1(blockDim_X);
-
-		reduceMax_simplified<blockDim_X><<< dimGrid1, dimBlock1, SharedMemorySize>>>(param.waveSpeedsX, gridDim_XR*gridDim_YR);
-	}
-	{
-		// RIEMANN, FLUCTUATIONS and UPDATE
-		const unsigned int blockDim_XR = VERTICAL_K_BLOCKSIZEX;
-		const unsigned int blockDim_YR = VERTICAL_K_BLOCKSIZEY;
-		unsigned int gridDim_XR = (param.cellsX + (blockDim_XR-1)) / (blockDim_XR);
-		unsigned int gridDim_YR = (param.cellsY + (blockDim_YR-3-1)) / (blockDim_YR-3);
-		dim3 dimGrid_vR(gridDim_XR, gridDim_YR);
-		dim3 dimBlock_vR(blockDim_XR, blockDim_YR);
-		int shared_mem_size = VERTICAL_K_BLOCKSIZEX*VERTICAL_K_BLOCKSIZEY*NUMWAVES*(NUMSTATES+1)*sizeof(real);
-
-		Riemann_vertical_kernel<NUMSTATES, NUMWAVES, NUMCOEFF, VERTICAL_K_BLOCKSIZEX*VERTICAL_K_BLOCKSIZEY, Riemann_v, Limiter><<<dimGrid_vR, dimBlock_vR,shared_mem_size>>>(param, Riemann_pointwise_solver_v, limiter_phi,entropy_fix_v);
-
-		// REDUCTION
-		const unsigned int blockDim_X = 512;		// fine tune the best block size
-
-		size_t SharedMemorySize = (blockDim_X)*sizeof(real);
-		unsigned int gridDim_X2;
-
-		gridDim_X2 = 1;
-
-		dim3 dimGrid2(gridDim_X2);
-		dim3 dimBlock2(blockDim_X);
-
-		reduceMax_simplified<blockDim_X><<< dimGrid2, dimBlock2, SharedMemorySize>>>(param.waveSpeedsY, gridDim_XR*gridDim_YR);
-	}
-	{
-		timeStepAdjust_simple<<<1,1>>>(param);
-
-		bool revert;
-		cudaMemcpy(&revert, param.revert, sizeof(bool), cudaMemcpyDeviceToHost);
-		if (revert)
-		{
-			// Swap q and qNew before stepping again
-			// At this stage qNew became old and q has the latest state that is
-			// because q was updated based on qNew, which right before 'step'
-			// held the latest update.
-			real* temp = param.qNew;
-			param.qNew = param.q;
-			param.q = temp;
-		}
-	}
+    {
+	// RIEMANN, FLUCTUATIONS and UPDATES
+	const unsigned int blockDim_XR = HORIZONTAL_K_BLOCKSIZEX;
+	const unsigned int blockDim_YR = HORIZONTAL_K_BLOCKSIZEY;
+	unsigned int gridDim_XR = (param.cellsX + (blockDim_XR-3-1)) / (blockDim_XR-3);
+	unsigned int gridDim_YR = (param.cellsY + (blockDim_YR-1)) / (blockDim_YR);
+	dim3 dimGrid_hR(gridDim_XR, gridDim_YR);
+	dim3 dimBlock_hR(blockDim_XR, blockDim_YR);
+	int shared_mem_size = HORIZONTAL_K_BLOCKSIZEX*HORIZONTAL_K_BLOCKSIZEY*NUMWAVES*(NUMSTATES+1)*sizeof(real);
+	
+	Riemann_horizontal_kernel<NUMSTATES, NUMWAVES, NUMCOEFF, HORIZONTAL_K_BLOCKSIZEX*HORIZONTAL_K_BLOCKSIZEY, Riemann_h, Limiter><<<dimGrid_hR, dimBlock_hR, shared_mem_size>>>(param, Riemann_pointwise_solver_h, limiter_phi, entropy_fix_h);
+	CHKERR();
+	
+	// REDUCTION
+	const unsigned int blockDim_X = 512;		// fine tune the best block size
+	
+	size_t SharedMemorySize = (blockDim_X)*sizeof(real);
+	unsigned int gridDim_X1;
+	
+	gridDim_X1 = 1;
+	
+	dim3 dimGrid1(gridDim_X1);
+	dim3 dimBlock1(blockDim_X);
+	
+	reduceMax_simplified<blockDim_X><<< dimGrid1, dimBlock1, SharedMemorySize>>>(param.waveSpeedsX, gridDim_XR*gridDim_YR);
+    }
+    {
+	// RIEMANN, FLUCTUATIONS and UPDATE
+	const unsigned int blockDim_XR = VERTICAL_K_BLOCKSIZEX;
+	const unsigned int blockDim_YR = VERTICAL_K_BLOCKSIZEY;
+	unsigned int gridDim_XR = (param.cellsX + (blockDim_XR-1)) / (blockDim_XR);
+	unsigned int gridDim_YR = (param.cellsY + (blockDim_YR-3-1)) / (blockDim_YR-3);
+	dim3 dimGrid_vR(gridDim_XR, gridDim_YR);
+	dim3 dimBlock_vR(blockDim_XR, blockDim_YR);
+	int shared_mem_size = VERTICAL_K_BLOCKSIZEX*VERTICAL_K_BLOCKSIZEY*NUMWAVES*(NUMSTATES+1)*sizeof(real);
+	
+	Riemann_vertical_kernel<NUMSTATES, NUMWAVES, NUMCOEFF, VERTICAL_K_BLOCKSIZEX*VERTICAL_K_BLOCKSIZEY, Riemann_v, Limiter><<<dimGrid_vR, dimBlock_vR,shared_mem_size>>>(param, Riemann_pointwise_solver_v, limiter_phi,entropy_fix_v);
+	
+	// REDUCTION
+	const unsigned int blockDim_X = 512;		// fine tune the best block size
+	
+	size_t SharedMemorySize = (blockDim_X)*sizeof(real);
+	unsigned int gridDim_X2;
+	
+	gridDim_X2 = 1;
+	
+	dim3 dimGrid2(gridDim_X2);
+	dim3 dimBlock2(blockDim_X);
+	
+	reduceMax_simplified<blockDim_X><<< dimGrid2, dimBlock2, SharedMemorySize>>>(param.waveSpeedsY, gridDim_XR*gridDim_YR);
+    }
+    {
+	timeStepAdjust_simple<<<1,1>>>(param);
+	
+	bool revert;
+	cudaMemcpy(&revert, param.revert, sizeof(bool), cudaMemcpyDeviceToHost);
+	if (revert)
+	    {
+		// Swap q and qNew before stepping again
+		// At this stage qNew became old and q has the latest state that is
+		// because q was updated based on qNew, which right before 'step'
+		// held the latest update.
+		real* temp = param.qNew;
+		param.qNew = param.q;
+		param.q = temp;
+	    }
+    }
+    
+    return 0;
 }
 
 #endif

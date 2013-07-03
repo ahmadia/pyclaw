@@ -1,6 +1,8 @@
 #ifndef __CUDACLAW_H__
 #define __CUDACLAW_H__
 
+#include "real.h"
+
 int shallow_water_solver_allocate(int cellsX,
                 								  int cellsY,
 								                  int ghostCells,

@@ -1,3 +1,4 @@
+#include "error.h"
 #include "cudaclaw.h"
 #include "common.h"
 #include "problem_setup.h"
@@ -7,8 +8,6 @@
 
 #define GPU_RELEASE 0
 #define GPU_DEBUG 1
-
-#define CHKERRQ(n) if (n) { printf("CUDA error: %s\n", cudaGetErrorString(n)); return n; }
 
 void setupCUDA();
 
@@ -96,15 +95,16 @@ int shallow_water_solver_setup (int bc_left,
 
 int hyperbolic_solver_2d_step (real dt, real* next_dt)
 {
-
+    CHKERR();
     setBoundaryConditions(*param, bc);
+    CHKERR();
     limited_Riemann_Update(*param,
 			   shallow_water_h,
 			   shallow_water_v,
 			   phi_mc,
 			   entropy_fix_h,
 			   entropy_fix_v);
-
+    CHKERR();
     err = cudaMemcpy(next_dt, param->dt_used, sizeof(real), cudaMemcpyDeviceToHost);
     CHKERRQ(err);
     return 0;
