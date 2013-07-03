@@ -28,8 +28,8 @@ size_t qbc_size;
 cudaError_t err;
 
 // Entropy fix
-entropy_fix_Shallow_Water_horziontal ent_fix_shallow_water_h;
-entropy_fix_Shallow_Water_vertical   ent_fix_shallow_water_v;
+entropy_fix_Shallow_Water_horziontal entropy_fix_h;
+entropy_fix_Shallow_Water_vertical   entropy_fix_v;
 
 int shallow_water_solver_allocate(int cellsX,
 				  int cellsY,
@@ -57,8 +57,8 @@ int shallow_water_solver_allocate(int cellsX,
 			 startTime,
 			 endTime);
 
-    param.setSnapshotRate(0.0);
-    param.setEntropyFix(True);
+    param->setSnapshotRate(0.0);
+    param->setEntropyFix(true);
 
     qbc_size = param->cellsX*param->cellsY*param->numStates*sizeof(real);
 
@@ -99,8 +99,11 @@ int hyperbolic_solver_2d_step (real dt, real* next_dt)
     limited_Riemann_Update(*param,
 			   shallow_water_h,
 			   shallow_water_v,
-			   phi_mc);
-    err = cudaMemcpy(next_dt, param->waveSpeedsX, sizeof(real), cudaMemcpyDeviceToHost);
+			   phi_mc,
+			   entropy_fix_h,
+			   entropy_fix_v);
+
+    err = cudaMemcpy(next_dt, param->dt_used, sizeof(real), cudaMemcpyDeviceToHost);
 
     if (err != cudaSuccess) {
     	return err;
