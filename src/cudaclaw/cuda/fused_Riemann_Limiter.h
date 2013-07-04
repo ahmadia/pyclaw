@@ -607,6 +607,7 @@ int limited_Riemann_Update(pdeParam &param,						// Problem parameters
 	dim3 dimBlock1(blockDim_X);
 	
 	reduceMax_simplified<blockDim_X><<< dimGrid1, dimBlock1, SharedMemorySize>>>(param.waveSpeedsX, gridDim_XR*gridDim_YR);
+	CHKERR();
     }
     {
 	// RIEMANN, FLUCTUATIONS and UPDATE
@@ -619,7 +620,9 @@ int limited_Riemann_Update(pdeParam &param,						// Problem parameters
 	int shared_mem_size = VERTICAL_K_BLOCKSIZEX*VERTICAL_K_BLOCKSIZEY*NUMWAVES*(NUMSTATES+1)*sizeof(real);
 	
 	Riemann_vertical_kernel<NUMSTATES, NUMWAVES, NUMCOEFF, VERTICAL_K_BLOCKSIZEX*VERTICAL_K_BLOCKSIZEY, Riemann_v, Limiter><<<dimGrid_vR, dimBlock_vR,shared_mem_size>>>(param, Riemann_pointwise_solver_v, limiter_phi,entropy_fix_v);
-	
+	CHKERR();
+
+
 	// REDUCTION
 	const unsigned int blockDim_X = 512;		// fine tune the best block size
 	
@@ -632,12 +635,17 @@ int limited_Riemann_Update(pdeParam &param,						// Problem parameters
 	dim3 dimBlock2(blockDim_X);
 	
 	reduceMax_simplified<blockDim_X><<< dimGrid2, dimBlock2, SharedMemorySize>>>(param.waveSpeedsY, gridDim_XR*gridDim_YR);
+	CHKERR();
     }
     {
 	timeStepAdjust_simple<<<1,1>>>(param);
+	CHKERR();
 	
 	bool revert;
-	cudaMemcpy(&revert, param.revert, sizeof(bool), cudaMemcpyDeviceToHost);
+	cudaError_t err;
+	err = cudaMemcpy(&revert, param.revert, sizeof(bool), cudaMemcpyDeviceToHost);
+	CHKERRQ(err);
+
 	if (revert)
 	    {
 		// Swap q and qNew before stepping again
