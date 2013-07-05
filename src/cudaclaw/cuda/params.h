@@ -2,6 +2,7 @@
 #define __PARAMS_H__
 
 #include "real.h"
+#include <stdio.h>
 #include "error.h"
 
 #include <string>
