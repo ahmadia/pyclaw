@@ -6,6 +6,9 @@
 #include "error.h"
 
 #include <string>
+#include <cstring>
+
+using namespace std;
 
 struct pdeParam
 {
