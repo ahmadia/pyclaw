@@ -2,8 +2,8 @@
 #define __PROBLEM_SETUP_H__
 
 #define NUMSTATES 3
-#define NUMWAVES 2
-#define NUMCOEFF 2
+#define NUMWAVES 3
+#define NUMCOEFF 1
 
 #include <math.h>
 

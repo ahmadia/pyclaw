@@ -101,7 +101,7 @@ __global__ void Riemann_horizontal_kernel(pdeParam param, Riemann Riemann_solver
 				amdq[0] = -0.5f*cos(leftCoeff[0])*leftCell[0]*leftCell[0];
 				apdq[0] =  0.5f*cos(leftCoeff[0])*rightCell[0]*rightCell[0];
 			}*/
-			//if (param.second_order)
+			if (param.second_order)
 			{
 				second_order_update_horizontal<numStates, numWaves, HORIZONTAL_K_BLOCKSIZEX, HORIZONTAL_K_BLOCKSIZEY>(param, wavesX, waveSpeedsX, amdq, apdq, threadIdx.y, threadIdx.x, dt, phi);
 				/*/#pragma unroll

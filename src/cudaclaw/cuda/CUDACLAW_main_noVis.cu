@@ -11,24 +11,29 @@ int main(int argc, char** argv)
 	setupCUDA();
 
 	// Boundary setup
-	boundaryConditions<BC_left_reflective, BC_right_reflective, BC_up_reflective, BC_down_reflective> reflective_conditions;
-	boundaryConditions<BC_left_reflective, BC_right_reflective, BC_up_reflective, BC_down_absorbing> semi_reflective_conditions;
+	//boundaryConditions<BC_left_reflective, BC_right_reflective, BC_up_reflective, BC_down_reflective> reflective_conditions;
+	//boundaryConditions<BC_left_reflective, BC_right_reflective, BC_up_reflective, BC_down_absorbing> semi_reflective_conditions;
 
-	BC_left_reflective left;
-	BC_right_reflective right;
-	BC_up_reflective up;
-	BC_down_reflective down;
+	//BC_left_reflective left;
+	//BC_right_reflective right;
+	//BC_up_reflective up;
+	//BC_down_reflective down;
 
-	//boundaryConditions<BC_left_absorbing, BC_right_absorbing, BC_up_absorbing, BC_down_absorbing> absorbing_conditions;
-	//BC_left_absorbing left;
-	//BC_right_absorbing right;
-	//BC_up_absorbing up;
-	//BC_down_absorbing down;
+	//reflective_conditions.condition_left = left;
+	//reflective_conditions.condition_right = right;
+	//reflective_conditions.condition_up = up;
+	//reflective_conditions.condition_down = down;
 
-	reflective_conditions.condition_left = left;
-	reflective_conditions.condition_right = right;
-	reflective_conditions.condition_up = up;
-	reflective_conditions.condition_down = down;
+	boundaryConditions<BC_left_absorbing, BC_right_absorbing, BC_up_absorbing, BC_down_absorbing> absorbing_conditions;
+	BC_left_absorbing left;
+	BC_right_absorbing right;
+	BC_up_absorbing up;
+	BC_down_absorbing down;
+
+	absorbing_conditions.condition_left = left;
+	absorbing_conditions.condition_right = right;
+	absorbing_conditions.condition_up = up;
+	absorbing_conditions.condition_down = down;
 
 	// Solver setup
 	// acoustics
@@ -54,18 +59,19 @@ int main(int argc, char** argv)
 	real simulation_start_time = 0.0f;
 	real simulation_end_time = 1.0f;
 
-	real snapshotRate = 0.02f;
-	bool entropy_fix = false;
+	real snapshotRate = 0.00f;
+	bool entropy_fix = true;
 
-	//pdeParam problemParam = setup(cellsX, cellsY, -1, 1, -1, ratio, entropy_fix, simulation_start_time, simulation_end_time, snapshotRate, radial_plateau);
-	real* coeffs = new real[2];
-	coeffs[0] = 4.0f;
-	coeffs[1] = 1.0f;
+	pdeParam problemParam = setup(cellsX, cellsY, -1, 1, -1, 1, entropy_fix, simulation_start_time, simulation_end_time, snapshotRate, radial_plateau);
+	//real* coeffs = new real[2];
+	//coeffs[0] = 4.0f;
+	//coeffs[1] = 1.0f;
 
-	pdeParam problemParam = setup(cellsX, cellsY, 0, 1, 0, 1, entropy_fix, simulation_start_time, simulation_end_time, snapshotRate, centered_circle_q, uniform_coefficients, coeffs);
-	delete coeffs;
+	//pdeParam problemParam = setup(cellsX, cellsY, 0, 1, 0, 1, entropy_fix, simulation_start_time, simulation_end_time, snapshotRate, centered_circle_q, uniform_coefficients, coeffs);
+	//delete coeffs;
 
-	solvePDE(problemParam, acoustic_h, acoustic_v, phi, reflective_conditions, no_entropy, no_entropy);
+	//solvePDE(problemParam, acoustic_h, acoustic_v, phi, reflective_conditions, no_entropy, no_entropy);
+	solvePDE(problemParam, shallow_water_h, shallow_water_v, phi, absorbing_conditions, ent_fix_shallow_water_h, ent_fix_shallow_water_v);
 
 	problemParam.clean();
 	gracefulExit();
