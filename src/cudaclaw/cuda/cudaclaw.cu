@@ -26,7 +26,6 @@ shallow_water_vertical   shallow_water_v;
 limiter_MC phi_mc;
 real* cpu_q;
 size_t qbc_size;
-cudaError_t err;
 
 // Entropy fix
 entropy_fix_Shallow_Water_horziontal entropy_fix_h;
@@ -95,6 +94,7 @@ int shallow_water_solver_setup (int bc_left,
 
 int hyperbolic_solver_2d_step (real dt, real* next_dt)
 {
+    cudaError_t ierr;
     CHKERR();
     setBoundaryConditions(*param, bc);
     CHKERR();
@@ -105,22 +105,24 @@ int hyperbolic_solver_2d_step (real dt, real* next_dt)
 			   entropy_fix_h,
 			   entropy_fix_v);
     CHKERR();
-    err = cudaMemcpy(next_dt, param->dt_used, sizeof(real), cudaMemcpyDeviceToHost);
-    CHKERRQ(err);
+    ierr = cudaMemcpy(next_dt, param->dt_used, sizeof(real), cudaMemcpyDeviceToHost);
+    CHKERRQ(ierr);
     return 0;
 }
 
 int hyperbolic_solver_2d_get_qbc (real* qbc)
 {
-    err = cudaMemcpy(qbc, param->qNew, qbc_size, cudaMemcpyDeviceToHost);
-    CHKERRQ(err);
+    cudaError_t ierr;
+    ierr = cudaMemcpy(qbc, param->qNew, qbc_size, cudaMemcpyDeviceToHost);
+    CHKERRQ(ierr);
     return 0;
 }
 
 int hyperbolic_solver_2d_set_qbc (real* qbc)
 {
-    err = cudaMemcpy(param->qNew, qbc, qbc_size, cudaMemcpyHostToDevice);
-    CHKERRQ(err);
+    cudaError_t ierr;
+    ierr = cudaMemcpy(param->qNew, qbc, qbc_size, cudaMemcpyHostToDevice);
+    CHKERRQ(ierr);
     return 0;
 }
 
