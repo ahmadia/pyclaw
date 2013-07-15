@@ -17,7 +17,7 @@ def debug_loggers():
     root_logger = logging.getLogger()
     root_logger.setLevel(logging.DEBUG)
     root_logger.propagate = True
-
+ 
 
 def disable_loggers():
     """
@@ -153,8 +153,9 @@ def run():
                                    riemann_compare.domain)
     claw.solver = riemann_compare.solver
 
-    claw.output_format = None
-
+    if riemann_compare.outdir:
+        claw.outdir = riemann_compare.outdir + '/' + riemann_compare.name
+    
     claw.tfinal = riemann_compare.tfinal
     status = claw.run()
     riemann_compare.claw = claw
@@ -185,10 +186,11 @@ def compare_1D(nx=1000):
         solver.num_waves = rp_advection.num_waves
         solver.bc_lower[0] = 2
         solver.bc_upper[0] = 2
+        riemann_compare.name = name
         riemann_compare.solver = solver
         riemann_compare.xclaw = xclaw
         riemann_compare.state, riemann_compare.domain = init_1D(nx, xclaw)
-
+        
         # benchmark
         t = timeit(stmt='riemann_compare.run()',
                    number=1, setup = 'import riemann_compare')
@@ -228,6 +230,7 @@ def compare_2D(nx=(250,250)):
         solver.dt_initial = 0.001
         solver.dt_variable = False
 
+        riemann_compare.name = name
         riemann_compare.solver = solver
         riemann_compare.xclaw = xclaw
         riemann_compare.state, riemann_compare.domain = init_2D(nx, xclaw)
@@ -252,6 +255,12 @@ if __name__=="__main__":
 
     import sys
 
+    vis = True
+    if vis:
+        riemann_compare.outdir='./_output'
+    else:
+        riemann_compare.outdir = None
+    
     if len(sys.argv) > 1:
         nx_1D = int(sys.argv[1])
     else:
