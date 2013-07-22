@@ -3,18 +3,21 @@
 
 #include "common.h"
 
-template<class L, class R, class U, class D>
-    class boundaryConditions
+struct BC {
+  __device__ virtual void operator()(pdeParam param, int row) = 0;
+};
+
+class boundaryConditions
 {
  public:
-    L condition_left;
-    R condition_right;
-    U condition_up;
-    D condition_down;
+    BC* condition_left;
+    BC* condition_right;
+    BC* condition_up;
+    BC* condition_down;
 };
 
 
-struct BC_none
+struct BC_none: BC
 {
   __device__ void operator()(pdeParam param, int ignored)
   {
@@ -28,7 +31,7 @@ struct BC_none
 // For example for the left edge,  threads will be created equal to the amount of rows there are
 // each will handle the boundary cells on its assigned row.
 // ! The number of rows (or columns) includes the boundaries on both sides
-struct BC_left_absorbing
+struct BC_left_absorbing: BC
 {
     __device__ void operator()(pdeParam param, int row)
     {
@@ -42,7 +45,7 @@ struct BC_left_absorbing
 		    param.setElement_qNew(row, col, k, param.getElement_qNew(row, boundary_end, k));
     }
 };
-struct BC_right_absorbing
+struct BC_right_absorbing: BC
 {
     __device__ void operator()(pdeParam param, int row)
     {
@@ -56,7 +59,7 @@ struct BC_right_absorbing
 		    param.setElement_qNew(row, col, k, param.getElement_qNew(row, boundary_start-1, k));
     }
 };
-struct BC_up_absorbing
+struct BC_up_absorbing: BC
 {
     __device__ void operator()(pdeParam param, int col)
     {
@@ -70,7 +73,7 @@ struct BC_up_absorbing
 		    param.setElement_qNew(row, col, k, param.getElement_qNew(boundary_start-1, col, k));
     }
 };
-struct BC_down_absorbing
+struct BC_down_absorbing: BC
 {
     __device__ void operator()(pdeParam param, int col)
     {
@@ -87,7 +90,7 @@ struct BC_down_absorbing
 
 //////////////////////////////////////// REFLECTIVE CONDITIONS //////////////////////////////////////////////////////////
 
-struct BC_left_reflective
+struct BC_left_reflective: BC
 {
     __device__ void operator()(pdeParam param, int row)
     {
@@ -105,7 +108,7 @@ struct BC_left_reflective
 		}
     }
 };
-struct BC_right_reflective
+struct BC_right_reflective: BC
 {
     __device__ void operator()(pdeParam param, int row)
     {
@@ -124,7 +127,7 @@ struct BC_right_reflective
 		}
     }
 };
-struct BC_up_reflective
+struct BC_up_reflective: BC
 {
     __device__ void operator()(pdeParam param, int col)
     {
@@ -143,7 +146,7 @@ struct BC_up_reflective
 		}
     }
 };
-struct BC_down_reflective
+struct BC_down_reflective: BC
 {
     __device__ void operator()(pdeParam param, int col)
     {

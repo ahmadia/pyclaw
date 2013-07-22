@@ -55,8 +55,7 @@ def locate_cuda():
         if not os.path.exists(v):
             raise EnvironmentError('The CUDA %s path could not be located in %s' % (k, v))
 
-    cudaconfig['cuflags'] = '-m64 -gencode arch=compute_10,code=sm_10' + \
-        ' -gencode arch=compute_20,code=sm_20' + \
+    cudaconfig['cuflags'] = '-m64 ' + \
         ' -gencode arch=compute_30,code=sm_30' + \
         ' -gencode arch=compute_35,code=sm_35'
 
@@ -74,15 +73,15 @@ def configuration(parent_package='',top_path=None):
 
     from numpy.distutils.misc_util import Configuration
     config = Configuration(
-    	'cudaclaw',
+    	'cudapetclaw',
     	parent_package,
     	top_path,
     	)
     config.add_data_files('log.config')
     config.add_subpackage('limiters')
     config.add_subpackage('io')
-    config.add_extension("cudaclaw",
-                         ["cudaclaw.pyx",
+    config.add_extension("cudapetclaw",
+                         ["cudapetclaw.pyx",
                           "cuda/cudaclaw.cu"],
                          language="c++",
                          library_dirs=[CUDA['lib']],

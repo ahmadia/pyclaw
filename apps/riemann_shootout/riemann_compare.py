@@ -70,11 +70,24 @@ solvers_1D.update(new_solvers_1D)
 try:
     from clawpack import cudaclaw
     cudasolver_2D = cudaclaw.CUDASolver2D()
+    cudasolver_2D.kernel_language = 'CUDA'
     cudasolver_2D.rp = rp2_shallow_roe_with_efix
     new_solvers_2D['cudaclaw'] = cudasolver_2D, cudaclaw
 
 except ImportError as err:
     print "Unable to import cudaclaw variant", err
+    print "Did CUDAClaw build correctly?"
+    raise err
+
+try:
+    from clawpack import cudapetclaw
+    cudapetsolver_2D = cudapetclaw.CUDASolver2D()
+    cudapetsolver_2D.kernel_language = 'CUDA'
+    cudapetsolver_2D.rp = rp2_shallow_roe_with_efix
+    new_solvers_2D['cudapetclaw'] = cudapetsolver_2D, cudapetclaw
+
+except ImportError as err:
+    print "Unable to import cudapetclaw variant", err
     print "Did CUDAClaw build correctly?"
     raise err
 
@@ -280,14 +293,6 @@ if __name__=="__main__":
         print "\n===ACCURACY==="
         for name in solvers.keys():
             print "%-25s: %g" % (name, tests[name])
-
-    riemann_compare.tfinal = 1.0
-    print "\nRiemann comparison on 1D advection to t=%g with %d grid points" % \
-        (riemann_compare.tfinal, nx_1D)
-
-    times, tests = compare_1D(nx=nx_1D)
-
-    print_time_accuracy(times, tests, riemann_compare.solvers_1D)
 
     riemann_compare.tfinal = 0.01
     print ("\nRiemann comparison on 2D shallow water equation to t=%g" + \

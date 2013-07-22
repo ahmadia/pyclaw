@@ -129,6 +129,7 @@ def configuration(parent_package='',top_path=None):
     config.add_subpackage('pyclaw', os.path.join(package_path,'pyclaw'))
     config.add_subpackage('petclaw',os.path.join(package_path,'petclaw'))
     config.add_subpackage('cudaclaw',os.path.join(package_path,'cudaclaw'))
+    config.add_subpackage('cudapetclaw',os.path.join(package_path,'cudapetclaw'))
     return config
 
 

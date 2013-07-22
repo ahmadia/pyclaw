@@ -16,10 +16,7 @@ inline void getCudaAttribute(T *attribute, CUdevice_attribute device_attribute);
 
 
 pdeParam *param;
-boundaryConditions<BC_left_absorbing,
-		       BC_right_absorbing,
-		       BC_up_absorbing,
-		       BC_down_absorbing> bc;
+boundaryConditions bc;
 
 shallow_water_horizontal shallow_water_h;
 shallow_water_vertical   shallow_water_v;
@@ -86,20 +83,20 @@ int shallow_water_solver_setup (int bc_left,
     BC_none none;
     
     if (bc_left == 4) {
-      bc.condition_left = none;
+      bc.condition_left = new BC_none();
     }
     else if (bc_left == 1) {
-      bc.condition_left = left;
+      bc.condition_left = new BC_left_absorbing();
     }
     else {
       return -1;
     }
 
     if (bc_right == 4) {
-      bc.condition_right = none;
+      bc.condition_right = new BC_none();
     }
     else if (bc_right == 1) {
-      bc.condition_right = right;
+      bc.condition_right = new BC_right_absorbing();
     }
     else {
       return -1;
@@ -107,20 +104,20 @@ int shallow_water_solver_setup (int bc_left,
 
     
     if (bc_up == 4) {
-      bc.condition_up = none;
+      bc.condition_up = new BC_none();
     }
     else if (bc_up == 1) {
-      bc.condition_up = up;
+      bc.condition_up = new BC_up_absorbing();
     }
     else {
       return -1;
     }
 
     if (bc_down == 4) {
-      bc.condition_down = none;
+      bc.condition_down = new BC_none();
     }
     else if (bc_down == 1) {
-      bc.condition_down = down;
+      bc.condition_down = new BC_down_absorbing();
     }
     else {
       return -1;

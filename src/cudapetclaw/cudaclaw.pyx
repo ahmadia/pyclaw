@@ -1,7 +1,7 @@
 # distutils: language = c++
 
 """
-cudaclaw.pyx
+cudapetclaw.pyx
 
 Cythonized bindings to CUDA-enabled hyperbolic solvers for PetClaw
 
@@ -112,8 +112,12 @@ class CUDAState(clawpack.petclaw.State):
 
         cdef int err, meqn, mx, my
 
-        qbc[:,num_ghost:-num_ghost,num_ghost:-num_ghost] = self.q
-
+        shape = [n + 2*num_ghost for n in self.grid.num_cells]
+        
+        self.q_da.globalToLocal(self.gqVec, self.lqVec)
+        shape.insert(0,self.num_eqn)
+        qbc = self.lqVec.getArray().reshape(shape, order = 'F')
+        
         meqn = qbc.shape[0]
         mx   = qbc.shape[1]
         my   = qbc.shape[2]
@@ -178,6 +182,10 @@ class CUDASolver2D(clawpack.petclaw.ClawSolver2D):
 
         Sets up a 2-D Shallow-Water Riemann solver with appropriate boundary
         conditions, limiter, grid size, and ghost cells.
+
+        Currently only supports absorbing or 'pass' boundary conditions.  Pass
+        boundary conditions are a 'no-op' for use on the interior of a domain, where
+        the boundary elements are filled in from neighboring grids by PETSc.
         """
 
         cdef int err
@@ -191,11 +199,21 @@ class CUDASolver2D(clawpack.petclaw.ClawSolver2D):
         # left, ... columns ... , right
         # up, ... rows ... , down
 
+        grid = solution.domain.grid
+        
+        for idim,dim in enumerate(grid.dimensions):
+            # First check if we are actually on the boundary
+            if not grid.on_lower_boundaries[idim]:
+                self.bc_lower[idim] = 4
+
+            if not grid.on_upper_boundaries[idim]:
+                self.bc_upper[idim] = 4
+
         bc_left  = self.bc_lower[0]
         bc_right = self.bc_upper[0]
         bc_down  = self.bc_lower[1]
         bc_up    = self.bc_upper[1]
-
+                
         limiter  = self.limiters
 
         err = shallow_water_solver_setup(bc_left,
@@ -264,9 +282,6 @@ class CUDASolver2D(clawpack.petclaw.ClawSolver2D):
 
         state = solution.state
 
-        if not state.synced:
-            self.qbc = state.get_qbc_from_q(self.num_ghost,self.qbc)
-
         # Main time-stepping loop
         for n in xrange(self.max_steps):
 
@@ -279,7 +294,8 @@ class CUDASolver2D(clawpack.petclaw.ClawSolver2D):
 
             saved_dt = self.dt
 
-            ### explicitly hard-code dt here
+            ### explicitly hard-code dt and qbc get here
+            self.qbc = state.get_qbc_from_q(self.num_ghost,self.qbc)
 
             self.step(solution)
 
@@ -318,9 +334,8 @@ class CUDASolver2D(clawpack.petclaw.ClawSolver2D):
         then returns a suggested next_dt that obeys the CFL condition for
         the current solution by a safety factor of 0.9.
 
-        This method leaves the solution *unsynced* with CUDA device memory,
-        the user must call set_q_from_qbc to retrieve the solution from the
-        device.
+        This method leaves the solution *synced* with CUDA device memory,
+        this routine needs to be optimized for performance.
 
         Unsupported functionality:
 
@@ -342,7 +357,7 @@ class CUDASolver2D(clawpack.petclaw.ClawSolver2D):
         err = hyperbolic_solver_2d_step(dt, &next_dt)
         check_err(err)
 
-        solution.state.synced = False
-
+        solution.state.set_q_from_qbc(self.num_ghost,self.qbc)
+        
         self.dt = next_dt
         return True

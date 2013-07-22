@@ -7,10 +7,10 @@ template<class BCS>
 __global__ void boundary_kernel(pdeParam param, BCS conditions)
 {
     int thread_global_id = threadIdx.x + blockDim.x*blockIdx.x;
-    conditions.condition_left(param, thread_global_id);
-    conditions.condition_right(param, thread_global_id);
-    conditions.condition_up(param, thread_global_id);
-    conditions.condition_down(param, thread_global_id);
+    (*conditions.condition_left)(param, thread_global_id);
+    (*conditions.condition_right)(param, thread_global_id);
+    (*conditions.condition_up)(param, thread_global_id);
+    (*conditions.condition_down)(param, thread_global_id);
 }
 
 template<class BCS>

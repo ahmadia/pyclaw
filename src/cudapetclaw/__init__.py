@@ -17,13 +17,13 @@ __all__.extend(['Controller','Dimension','Patch','Domain','Solution','State','CF
 from .controller import Controller
 from clawpack.petclaw.geometry import Patch, Domain 
 from clawpack.pyclaw.geometry import Dimension
-from .solution import Solution
-from .state import State
-from .cfl import CFL
+from clawpack.pyclaw.solution import Solution
 
-__all__.extend(['ClawSolver1D','ClawSolver2D','ClawSolver3D','SharpClawSolver1D','SharpClawSolver2D'])
-from .classic.solver import ClawSolver1D,ClawSolver2D,ClawSolver3D
-from .sharpclaw.solver import SharpClawSolver1D,SharpClawSolver2D
+# this is almost certainly not used
+from clawpack.petclaw.cfl import CFL
+
+from clawpack.cudapetclaw.solver import CUDASolver2D
+from clawpack.cudapetclaw.state import State
 
 __all__.append('BC')
 from clawpack.pyclaw.solver import BC
