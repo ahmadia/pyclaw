@@ -220,9 +220,9 @@ def compare_2D(nx=(250,250)):
     for name, (solver, xclaw) in solvers.iteritems():
         solver.num_waves = 3
         solver.bc_lower[0] = pyclaw.BC.extrap
-        solver.bc_upper[0] = pyclaw.BC.wall
+        solver.bc_upper[0] = pyclaw.BC.extrap
         solver.bc_lower[1] = pyclaw.BC.extrap
-        solver.bc_upper[1] = pyclaw.BC.wall
+        solver.bc_upper[1] = pyclaw.BC.extrap
 
         solver.limiters = pyclaw.limiters.tvd.MC
         solver.dimensional_split=1
