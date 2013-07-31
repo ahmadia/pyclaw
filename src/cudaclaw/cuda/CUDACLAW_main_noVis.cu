@@ -59,7 +59,7 @@ int main(int argc, char** argv)
 	real simulation_start_time = 0.0f;
 	real simulation_end_time = 1.0f;
 
-	real snapshotRate = 0.00f;
+	real snapshotRate = 0.1f;
 	bool entropy_fix = true;
 
 	pdeParam problemParam = setup(cellsX, cellsY, -1, 1, -1, 1, entropy_fix, simulation_start_time, simulation_end_time, snapshotRate, radial_plateau);

@@ -18,7 +18,7 @@ template <class Riemann_h, class Riemann_v, class Limiter, class BCS, class Ent_
     real dt;
 
     setBoundaryConditions(param, boundary_conditions);
-    limited_Riemann_Update(param, Riemann_pointwise_solver_h, Riemann_pointwise_solver_v, limiter_phi, entropy_fix_h, entropy_fix_v);
+    limited_Riemann_Update(param, Riemann_pointwise_solver_h, Riemann_pointwise_solver_v, limiter_phi, entropy_fix_h, entropy_fix_v, 0.0001f, false);
     cudaMemcpy(&dt, param.dt_used, sizeof(real), cudaMemcpyDeviceToHost);
 
     return dt;

@@ -35,7 +35,7 @@ struct pdeParam
     const real endTime;		// simulation end time
 
     real desired_CFL;		// a CFL number which determines the next time step length (dt)
-    real CFL_lower_bound;	// lower bound on the CFL to be used
+    real CFL_max;		// maximum CFL, 1.0 by default
 
     bool snapshots;    		// flag to allow or disallow solution snapshots
     real snapshotTimeInterval;	// time interval between snapshots
@@ -72,7 +72,7 @@ pdeParam()
 	    second_order = true;
 
 	    desired_CFL = 0.90f;
-	    CFL_lower_bound = 0.45f;
+	    CFL_max = 1.0f;
 
 	    real dt_cpu = 10.0f;
 	    real dt_used_cpu = 0.0f;
@@ -144,7 +144,7 @@ pdeParam(int cellsX, int cellsY, int ghostCells, int numStates, int numWaves, in
 	    second_order = true;
 
 	    desired_CFL = 0.90f;
-	    CFL_lower_bound = 0.9f;
+	    CFL_max = 1.0f;
 
 	    real dt_cpu = 0.0f;//10.0f;
 	    real dt_used_cpu = 0.0f;
@@ -218,9 +218,9 @@ pdeParam(int cellsX, int cellsY, int ghostCells, int numStates, int numWaves, in
 	{
 	    this->desired_CFL = desired_CFL;
 	}
-    void setLowerBoundCFL(real lower_bound_CFL)
+    void setCFL_max(real max_CFL)
 	{
-	    CFL_lower_bound = lower_bound_CFL;
+	    CFL_max = max_CFL;
 	}
 
     void clean()

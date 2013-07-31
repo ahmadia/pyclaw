@@ -547,15 +547,15 @@ __global__ void timeStepAdjust_simple(pdeParam param)
 	real dy = param.dy;
 	real dt = *param.dt;
 	real dt_used = *param.dt_used;
-	if (dt*fmax(u/dx,v/dy) > 1.0f)	// if CFL condition violated
+	if (dt*fmax(u/dx,v/dy) > param.CFL_max)	// if CFL condition violated
 	{
 		// simulation did not advance, no time is to be incremented to the global simulation time
 		dt_used = 0.0f;
 		// compute a new dt with a stricter assumption
-		dt = param.CFL_lower_bound/fmax(u/dx,v/dy);
+		dt = param.desired_CFL/fmax(u/dx,v/dy);
 
 		// condition failed do not swap buffers, effectively reverts the time step
-		*param.revert = false;
+		*param.revert = true;
 	}
 	else	// else if no violation was recorded
 	{
@@ -565,7 +565,7 @@ __global__ void timeStepAdjust_simple(pdeParam param)
 		dt = param.desired_CFL/fmax(u/dx,v/dy);
 
 		// allow buffer swap
-		*param.revert = true;
+		*param.revert = false;
 	}
 	*param.dt = /*0.0001f;/*/dt/**/;
 	*param.dt_used = /*0.0001f;/*/dt_used/***/;
@@ -579,9 +579,22 @@ int limited_Riemann_Update(pdeParam &param,						// Problem parameters
 			   Riemann_v Riemann_pointwise_solver_v,	//
 			   Limiter limiter_phi,						//
 			   Ent_h entropy_fix_h,
-			   Ent_v entropy_fix_v
-			   )
+			   Ent_v entropy_fix_v,
+			   real time_step_dt = -1.0f,
+			   bool revert_step = false)
 {
+    if ( time_step_dt >= 0.0f)
+    {
+        cudaMemcpy(param.dt, &time_step_dt, sizeof(real), cudaMemcpyHostToDevice);
+        cudaMemcpy(param.dt_used, &time_step_dt, sizeof(real), cudaMemcpyHostToDevice);
+
+        if (revert_step)
+        {
+            real* temp = param.qNew;
+            param.qNew = param.q;
+            param.q = temp;
+        }
+    }
     {
 	// RIEMANN, FLUCTUATIONS and UPDATES
 	const unsigned int blockDim_XR = HORIZONTAL_K_BLOCKSIZEX;
@@ -637,273 +650,27 @@ int limited_Riemann_Update(pdeParam &param,						// Problem parameters
 	reduceMax_simplified<blockDim_X><<< dimGrid2, dimBlock2, SharedMemorySize>>>(param.waveSpeedsY, gridDim_XR*gridDim_YR);
 	CHKERR();
     }
+    real* temp = param.qNew;
+    param.qNew = param.q;
+    param.q = temp;
+    if ( time_step_dt < 0.0f )
     {
-	timeStepAdjust_simple<<<1,1>>>(param);
-	CHKERR();
-	
-	bool revert;
-	cudaError_t err;
-	err = cudaMemcpy(&revert, param.revert, sizeof(bool), cudaMemcpyDeviceToHost);
-	CHKERRQ(err);
+        timeStepAdjust_simple<<<1,1>>>(param);
 
-	if (revert)
-	    {
-		// Swap q and qNew before stepping again
-		// At this stage qNew became old and q has the latest state that is
-		// because q was updated based on qNew, which right before 'step'
-		// held the latest update.
-		real* temp = param.qNew;
-		param.qNew = param.q;
-		param.q = temp;
-	    }
+        bool revert;
+        cudaMemcpy(&revert, param.revert, sizeof(bool), cudaMemcpyDeviceToHost);
+        if (revert)
+        {
+                // Swap q and qNew before stepping again
+                // At this stage qNew became old and q has the latest state that is
+                // because q was updated based on qNew, which right before 'step'
+                // held the latest update.
+                real* temp = param.qNew;
+                param.qNew = param.q;
+                param.q = temp;
+        }
     }
-    
     return 0;
 }
 
 #endif
-
-			//// Comments on this part
-			//// ---------------------
-			//// With entropy fix, the computation of first order fluctuations (amdq and apdq) cannot be integrated with the second order correctionas elegantly.
-			//// This is because computing the first order fluctuations requires more than checking the wave speed sign and the way we want to implement its
-			//// computation requires it to be computed completely before moving on to second order corrections which is in fact quite independent from the first
-			//// order fluctuations, in terms of data dependence (except if one wants to try to use the special wave speeds that come from the entropy fix in the
-			//// correction process).
-			//// We compute first and second order fluctuations as a single process, which in fact can be split using this test. This testing code simply computes
-			//// first order fluctuations and then moves on for second order corrections, and would be replaced by an entropy fixing method when necessary, without
-			//// interfering with second order computations, making this a more elegant solution to the problem (instead of splitting the method into 2 large chunks
-			//// of code). However, this involves redundant reads, which reflect according to a few test to around 1-2% in decrease in performance. It remains to see
-			//// if this loss is compensated by the cleaness of the approach once entropy fix is required.
-			////
-			//// Same for vertical counterpart
-			//#pragma unroll
-			//for (int w = 0; w < numWaves; w++)
-			//{
-			//	real waveSpeed =  getSharedSpeed(waveSpeedsX, threadIdx.y, threadIdx.x, w, numWaves, HORIZONTAL_K_BLOCKSIZEY, HORIZONTAL_K_BLOCKSIZEX);
-
-			//	if (waveSpeed < (real)0.0f)
-			//	{
-			//		#pragma unroll
-			//		for (int k = 0; k < numStates; k++)
-			//		{
-			//			real wave_state = getSharedWave(wavesX, threadIdx.y, threadIdx.x, w, k, numWaves, numStates, HORIZONTAL_K_BLOCKSIZEY, HORIZONTAL_K_BLOCKSIZEX);
-			//			amdq[k] +=	waveSpeed * wave_state;
-			//		}
-			//	}
-			//	else
-			//	{
-			//		#pragma unroll
-			//		for (int k = 0; k < numStates; k++)
-			//		{
-			//			real wave_state = getSharedWave(wavesX, threadIdx.y, threadIdx.x, w, k, numWaves, numStates, HORIZONTAL_K_BLOCKSIZEY, HORIZONTAL_K_BLOCKSIZEX);
-			//			apdq[k] +=	waveSpeed * wave_state;
-			//		}
-			//	}
-			//}
-
-			/////////////////////////////// Entropy Fix Check START
-			//bool Burger_equation  = false;
-			//bool entropy_suspicious  = false;
-			//for (int w = 0; w < numWaves && !entropy_suspicious; w++)
-			//{
-			//	real waveSpeed_left  =  getSharedSpeed(waveSpeedsX, threadIdx.y, threadIdx.x-1, 0, numWaves, HORIZONTAL_K_BLOCKSIZEY, HORIZONTAL_K_BLOCKSIZEX);
-			//	real waveSpeed_right =  getSharedSpeed(waveSpeedsX, threadIdx.y, threadIdx.x+1, 0, numWaves, HORIZONTAL_K_BLOCKSIZEY, HORIZONTAL_K_BLOCKSIZEX);
-
-			//	entropy_suspicious = waveSpeed_left < 0 && 0 < waveSpeed_right;
-
-			//	//real waveSpeed =  getWaveSpeed(waveSpeeds, threadIdx.y, threadIdx.x, w, numWaves, HORIZONTAL_BLOCKSIZEX);
-
-			//	//// check opposite direction of the wavespeed
-			//	//if ( waveSpeed < 0 )
-			//	//{
-			//	//	// check with right
-			//	//	real waveSpeed_toRight = getWaveSpeed(waveSpeeds, threadIdx.y, threadIdx.x+1, w, numWaves, HORIZONTAL_BLOCKSIZEX);
-			//	//	if ( waveSpeed_toRight > 0 )
-			//	//		entropy_suspicious = true;
-			//	//}
-			//	//else
-			//	//{
-			//	//	// check with left
-			//	//	real waveSpeed_toLeft = getWaveSpeed(waveSpeeds, threadIdx.y, threadIdx.x-1, w, numWaves, HORIZONTAL_BLOCKSIZEX);
-			//	//	if ( waveSpeed_toLeft < 0 )
-			//	//		entropy_suspicious = true;
-			//	//}
-			//}
-			///////////////////////////////////// Entropy Fix Check END
-			///*__shared__ int warp_ids[6];
-			//warp_ids [0] = 0;
-			//warp_ids [1] = 0;
-			//warp_ids [2] = 0;
-			//warp_ids [3] = 0;
-			//warp_ids [4] = 0;
-			//warp_ids [5] = 0;*/
-			//if (param.entropy_fix && entropy_suspicious && !Burger_equation)
-			//{
-			//	//int warp_index = (threadIdx.x + threadIdx.y*blockDim.x)%32;
-			//	//if ( atomicCAS(&warp_ids[warp_index], 0, 1) == 0 )
-			//	//{
-			//	//	atomicAdd(entropy_fix_entering_warps, 1);
-			//	//}
-			//	//atomicAdd(entropy_fix_entering_threads, 1);
-			//	bool entropy_fixed = false;
-
-			//	///////////////////////////////////// Entropy Fix START
-			//	real lambda_l = leftCell[1]/leftCell[0] - sqrt(9.8f*leftCell[0]);
-			//	real lambda_r;
-			//	real s_fraction;
-			//	if (lambda_l > 0 && getSharedSpeed(waveSpeedsX, threadIdx.y, threadIdx.x, 0, numWaves, HORIZONTAL_K_BLOCKSIZEY, HORIZONTAL_K_BLOCKSIZEX) > 0.0f)
-			//		entropy_fixed = true;
-
-			//	int w = 0;	// wave number
-			//	while (!entropy_fixed && w < numWaves)
-			//	{
-			//		// solve for the wave speed just to the left and just to the right of the current wave_w
-			//		#pragma unroll
-			//		for (int k = 0; k < numStates; k++)
-			//		{
-			//			real wave_state = getSharedWave(wavesX, threadIdx.y, threadIdx.x, w, k, numWaves, numStates, HORIZONTAL_K_BLOCKSIZEY, HORIZONTAL_K_BLOCKSIZEX);
-			//			leftCell[k] += wave_state;
-			//		}
-
-			//		// compute lambda_r according to the eigenvalues of the jacobian of the differential operator at the new state q right after the w-th wave
-			//		if ( w == 0 )
-			//			lambda_r = leftCell[1]/leftCell[0] - sqrt(9.8f*leftCell[0]);
-			//		else if (w == 1 )
-			//			lambda_r = getSharedSpeed(waveSpeedsX, threadIdx.y, threadIdx.x, w, numWaves, HORIZONTAL_K_BLOCKSIZEY, HORIZONTAL_K_BLOCKSIZEX);
-			//		else
-			//			lambda_r = leftCell[1]/leftCell[0] + sqrt(9.8f*leftCell[0]);
-
-
-			//		real waveSpeed =  getSharedSpeed(waveSpeedsX, threadIdx.y, threadIdx.x, w, numWaves, HORIZONTAL_K_BLOCKSIZEY, HORIZONTAL_K_BLOCKSIZEX);
-			//		if ( lambda_l < 0 && 0 < lambda_r )
-			//		{
-			//			s_fraction = lambda_l*(lambda_r - waveSpeed)/(lambda_r - lambda_l);
-			//			entropy_fixed = true;
-			//			//atomicAdd(entropy_fix_entering_threads, -1);
-			//		}
-			//		else if ( waveSpeed < 0 )
-			//		{
-			//			s_fraction = waveSpeed;
-			//		}
-			//		else
-			//		{
-			//			s_fraction = 0.0f;
-			//		}
-
-			//		#pragma unroll
-			//		for (int k = 0; k < numStates; k++)
-			//		{
-			//			real wave_state = getSharedWave(wavesX, threadIdx.y, threadIdx.x, w, k, numWaves, numStates, HORIZONTAL_K_BLOCKSIZEY, HORIZONTAL_K_BLOCKSIZEX);
-			//			amdq[k] += s_fraction * wave_state;
-			//		}
-
-			//		lambda_l = lambda_r;
-			//		w++;
-			//	}
-
-			//	// Sum all the waves into apdq, then take out computed amdq from it
-			//	#pragma unroll
-			//	for(int w = 0; w < numWaves; w++)
-			//	{
-			//		real waveSpeed =  getSharedSpeed(waveSpeedsX, threadIdx.y, threadIdx.x, w, numWaves, HORIZONTAL_K_BLOCKSIZEY, HORIZONTAL_K_BLOCKSIZEX);
-
-			//		#pragma unroll
-			//		for(int k = 0; k < numStates; k++)
-			//		{
-			//			real wave_state = getSharedWave(wavesX, threadIdx.y, threadIdx.x, w, k, numWaves, numStates, HORIZONTAL_K_BLOCKSIZEY, HORIZONTAL_K_BLOCKSIZEX);
-			//			apdq[k] += waveSpeed * wave_state;
-			//		}
-			//	}
-			//	#pragma unroll
-			//	for(int k = 0; k < numStates; k++)
-			//	{
-			//		apdq[k] -= amdq[k];
-			//	}
-			//	// /////////////////////////////////// Entropy Fix END*/
-			//}
-			//else if (Burger_equation)
-			//{
-			//	//bool entropy_fixed = false;
-
-			//	//real lambda_l = cos(0.525f)*leftCell[0];
-			//	//real lambda_r;
-			//	//real s_fraction;
-			//	//if (lambda_l > 0 && getSharedSpeed(waveSpeedsX, threadIdx.y, threadIdx.x, 0, numWaves, HORIZONTAL_K_BLOCKSIZEY, HORIZONTAL_K_BLOCKSIZEX) > 0.0f)
-			//	//	entropy_fixed = true;
-
-			//	//int w = 0;	// wave number
-			//	//while (!entropy_fixed && w < numWaves)
-			//	//{
-			//	//	// solve for the wave speed just to the left and just to the right of the current wave_w
-			//	//	#pragma unroll
-			//	//	for (int k = 0; k < numStates; k++)
-			//	//	{
-			//	//		real wave_state = getSharedWave(wavesX, threadIdx.y, threadIdx.x, w, k, numWaves, numStates, HORIZONTAL_K_BLOCKSIZEY, HORIZONTAL_K_BLOCKSIZEX);
-			//	//		leftCell[k] += wave_state;
-			//	//	}
-
-			//	//	// compute lambda_r according to the eigenvalues of the jacobian of the differential operator at the new state q right after the w-th wave
-			//	//	if ( w == 0 )
-			//	//		lambda_r = cos(0.525f)*leftCell[0];
-
-
-			//	//	real waveSpeed =  getSharedSpeed(waveSpeedsX, threadIdx.y, threadIdx.x, w, numWaves, HORIZONTAL_K_BLOCKSIZEY, HORIZONTAL_K_BLOCKSIZEX);
-			//	//	if ( lambda_l < 0 && 0 < lambda_r )
-			//	//	{
-			//	//		s_fraction = lambda_l*(lambda_r - waveSpeed)/(lambda_r - lambda_l);
-			//	//		entropy_fixed = true;
-			//	//	}
-			//	//	else if ( waveSpeed < 0 )
-			//	//	{
-			//	//		s_fraction = waveSpeed;
-			//	//	}
-			//	//	else
-			//	//	{
-			//	//		s_fraction = 0.0f;
-			//	//	}
-
-			//	//	#pragma unroll
-			//	//	for (int k = 0; k < numStates; k++)
-			//	//	{
-			//	//		real wave_state = getSharedWave(wavesX, threadIdx.y, threadIdx.x, w, k, numWaves, numStates, HORIZONTAL_K_BLOCKSIZEY, HORIZONTAL_K_BLOCKSIZEX);
-			//	//		amdq[k] += s_fraction * wave_state;
-			//	//	}
-
-			//	//	lambda_l = lambda_r;
-			//	//	w++;
-			//	//}
-
-			//	//// Sum all the waves into apdq, then take out computed amdq from it
-			//	//#pragma unroll
-			//	//for(int w = 0; w < numWaves; w++)
-			//	//{
-			//	//	real waveSpeed = getSharedSpeed(waveSpeedsX, threadIdx.y, threadIdx.x, w, numWaves, HORIZONTAL_K_BLOCKSIZEY, HORIZONTAL_K_BLOCKSIZEX);
-
-			//	//	#pragma unroll
-			//	//	for(int k = 0; k < numStates; k++)
-			//	//	{
-			//	//		real wave_state = getSharedWave(wavesX, threadIdx.y, threadIdx.x, w, k, numWaves, numStates, HORIZONTAL_K_BLOCKSIZEY, HORIZONTAL_K_BLOCKSIZEX);
-			//	//		apdq[k] += waveSpeed * wave_state;
-			//	//	}
-			//	//}
-			//	//#pragma unroll
-			//	//for(int k = 0; k < numStates; k++)
-			//	//{
-			//	//	apdq[k] -= amdq[k];
-			//	//}
-			//}
-
-			/*real waveSpeed = getSharedSpeed(waveSpeedsX, threadIdx.y, threadIdx.x, 0, numWaves, HORIZONTAL_K_BLOCKSIZEY, HORIZONTAL_K_BLOCKSIZEX);;
-
-			if(waveSpeed < 0.0f)
-				amdq[0] = waveSpeed * getSharedWave(wavesX, threadIdx.y, threadIdx.x, 0, 0, numWaves, numStates, HORIZONTAL_K_BLOCKSIZEY, HORIZONTAL_K_BLOCKSIZEX);
-			else
-				apdq[0] = waveSpeed * getSharedWave(wavesX, threadIdx.y, threadIdx.x, 0, 0, numWaves, numStates, HORIZONTAL_K_BLOCKSIZEY, HORIZONTAL_K_BLOCKSIZEX);
-
-			if(leftCell[0] < 0 && rightCell[0] > 0)
-			{
-				real theta = 0.0f;
-				amdq[0] = -0.5f*cos(leftCoeff[0])*leftCell[0]*leftCell[0];
-				apdq[0] =  0.5f*cos(leftCoeff[0])*rightCell[0]*rightCell[0];
-			}*/
