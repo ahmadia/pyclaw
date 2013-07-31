@@ -4,6 +4,23 @@
 #include "boundary_conditions.h"
 #include "fused_Riemann_Limiter.h"
 
+real get_horizontal_absMax_speed(pdeParam &param)
+{
+	real horizontal_speed = 0.0f;
+	cudaMemcpy(&horizontal_speed, param.waveSpeedsX, sizeof(real), cudaMemcpyDeviceToHost);
+	return horizontal_speed;
+}
+real get_vertical_absMax_speed(pdeParam &param)
+{
+	real vertical_speed = 0.0f;
+	cudaMemcpy(&vertical_speed, param.waveSpeedsY, sizeof(real), cudaMemcpyDeviceToHost);
+	return vertical_speed;
+}
+void time_step_adjustment(pdeParam &param, real &dt, bool &revert)
+{
+	// Function to check the necessary data to decide a time step and validity of lastest step
+}
+
 template <class Riemann_h, class Riemann_v, class Limiter, class BCS, class Ent_h, class Ent_v>
     real step(pdeParam &param,			        // Problem parameters
 	      Riemann_h Riemann_pointwise_solver_h,	// Riemann problem solver for vertical interfaces, device function
