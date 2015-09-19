@@ -109,7 +109,7 @@ def setup(use_petsc=False,iplot=False,htmlplot=False,outdir='./_output',solver_t
     state.q[energy  ,:] = pressure/(gamma - 1.) + 0.5 * state.q[density,:] * velocity**2
 
     claw = pyclaw.Controller()
-    claw.tfinal = 1.8
+    claw.tfinal = 2.0
     claw.solution = pyclaw.Solution(state,domain)
     claw.solver = solver
     claw.num_output_times = 10

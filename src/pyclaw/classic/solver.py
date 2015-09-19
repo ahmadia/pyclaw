@@ -13,6 +13,7 @@ from clawpack.pyclaw.solver import Solver
 from clawpack.pyclaw.limiters import tvd
 import time
 import numpy as np
+from numba import jit
 
 # ============================================================================
 #  Generic Clawpack solver class
@@ -279,6 +280,7 @@ class ClawSolver1D(ClawSolver):
 
 
     # ========== Homogeneous Step =====================================
+    @jit()
     def step_hyperbolic(self,solution):
         r"""
         Take one time step on the homogeneous hyperbolic system.
@@ -287,7 +289,6 @@ class ClawSolver1D(ClawSolver):
          - *solution* - (:class:`~pyclaw.solution.Solution`) Solution that 
            will be evolved
         """
-        import numpy as np
 
         state = solution.states[0]
         grid = state.grid
@@ -339,17 +340,13 @@ class ClawSolver1D(ClawSolver):
             delta = np.ascontiguousarray(q_r - q_l)
 
             t1 = time.time()
-            wave,s,amdq,apdq, roe_time = self.rp(q_l,q_l0, q_l1, q_l2, q_r,q_r0, q_r1, q_r2, delta, aux_l,aux_r,state.problem_data['gamma1'], state.problem_data['efix'])
+            wave,s,amdq,apdq = self.rp(q_l,q_l0, q_l1, q_l2, q_r,q_r0, q_r1, q_r2, delta, aux_l,aux_r,state.problem_data['gamma1'], state.problem_data['efix'])
 
             if self.euler_roe_1D_tottime < 0:
                 self.euler_roe_1D_tottime += 1
             else:
                 self.euler_roe_1D_tottime += time.time() - t1
 
-            if self.roe_averages_tottime < 0:
-                self.roe_averages_tottime += 1
-            else:
-                self.roe_averages_tottime += roe_time
             # Update loop limits, these are the limits for the Riemann solver
             # locations, which then update a grid cell value
             # We include the Riemann problem just outside of the grid so we can
